@@ -59,7 +59,7 @@ func TestGetClaimsFromContext(t *testing.T) {
 
 func TestValidateJWT(t *testing.T) {
 	handler := ValidateJWT(httpgo.ResponseHandlerFunc(func(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
-		return httpgo.ResponseOK(true), nil
+		return httpgo.ResponseOK().WithBody(true), nil
 	}))
 
 	w := httptest.NewRecorder()

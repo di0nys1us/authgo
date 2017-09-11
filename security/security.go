@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -131,6 +132,8 @@ func (s *DefaultSecurity) Authenticate(w http.ResponseWriter, r *http.Request) (
 	c := Credentials{}
 	err := httpgo.ReadJSON(r.Body, &c)
 
+	log.Println(r.Body)
+
 	if err != nil {
 		return httpgo.ResponseForbidden(), nil
 	}
@@ -156,7 +159,7 @@ func (s *DefaultSecurity) Authenticate(w http.ResponseWriter, r *http.Request) (
 
 	w.Header().Add(httpgo.HeaderAuthorization, fmt.Sprintf(bearerToken, tokenString))
 
-	return httpgo.ResponseOK(subject), nil
+	return httpgo.ResponseOK().WithBody(subject), nil
 }
 
 func (s *DefaultSecurity) resolveSubject(c Credentials) (Subject, error) {

@@ -46,7 +46,17 @@ func createRouter() *chi.Mux {
 
 	a := handlers.NewAPI(r)
 	s := security.NewSecurity(func(email string) (security.Subject, error) {
-		return r.FindUserByEmail(email)
+		user, err := r.FindUserByEmail(email)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if user == nil {
+			return nil, nil
+		}
+
+		return user, nil
 	})
 
 	router := chi.NewRouter()

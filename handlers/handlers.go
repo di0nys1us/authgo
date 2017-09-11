@@ -51,7 +51,7 @@ func (a *DefaultAPI) GetUsers(w http.ResponseWriter, r *http.Request) (*httpgo.R
 		return nil, err
 	}
 
-	return httpgo.ResponseOK(users), nil
+	return httpgo.ResponseOK().WithBody(users), nil
 }
 
 func (a *DefaultAPI) GetUser(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
@@ -67,7 +67,7 @@ func (a *DefaultAPI) GetUser(w http.ResponseWriter, r *http.Request) (*httpgo.Re
 		return httpgo.ResponseNoContent(), nil
 	}
 
-	return httpgo.ResponseOK(user), nil
+	return httpgo.ResponseOK().WithBody(user), nil
 }
 
 func (a *DefaultAPI) PostUser(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
@@ -96,7 +96,7 @@ func (a *DefaultAPI) PostUser(w http.ResponseWriter, r *http.Request) (*httpgo.R
 
 	user.Password = ""
 
-	return httpgo.ResponseOK(user), nil
+	return httpgo.ResponseOK().WithBody(user), nil
 }
 
 func (a *DefaultAPI) PutUser(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
@@ -126,7 +126,7 @@ func (a *DefaultAPI) PutUser(w http.ResponseWriter, r *http.Request) (*httpgo.Re
 
 	user.Password = ""
 
-	return httpgo.ResponseOK(user), nil
+	return httpgo.ResponseOK().WithBody(user), nil
 }
 
 func updateUser(u *repository.User, ctx context.Context) error {
