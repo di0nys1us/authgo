@@ -84,8 +84,8 @@ func (a *DefaultAPI) PostUser(w http.ResponseWriter, r *http.Request) (*httpgo.R
 		return nil, err
 	}
 
-	if valid, _ := user.Validate(); !valid {
-		return httpgo.ResponseBadRequest(), nil
+	if err := user.Validate(); err != nil {
+		return httpgo.ResponseBadRequest().WithBody(err), nil
 	}
 
 	err = a.Repository.SaveUser(user)

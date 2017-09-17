@@ -40,20 +40,20 @@ func TestResolveSecurityKey(t *testing.T) {
 }
 
 func TestGetClaimsFromContext(t *testing.T) {
-	exp := &JWTClaims{
-		StandardClaims: &jwt.StandardClaims{Subject: "test@test"},
+	testClaims := &JWTClaims{
+		StandardClaims: jwt.StandardClaims{Subject: "foo@bar.net"},
 	}
 
-	ctx := context.Background()
+	c := context.Background()
 
-	if claims, ok := GetClaimsFromContext(ctx); ok {
+	if claims, ok := GetClaimsFromContext(c); ok {
 		t.Errorf("got %v, want nil", claims)
 	}
 
-	ctx = newContextWithClaims(ctx, exp)
+	c = newContextWithClaims(c, testClaims)
 
-	if claims, ok := GetClaimsFromContext(ctx); !ok {
-		t.Errorf("got %v, want %v", claims, exp)
+	if claims, ok := GetClaimsFromContext(c); !ok {
+		t.Errorf("got %v, want %v", claims, testClaims)
 	}
 }
 

@@ -2,16 +2,106 @@ package repository
 
 import (
 	"database/sql"
-	"errors"
 	"time"
 
 	"github.com/di0nys1us/valigo"
 	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
+)
+
+const (
+	sqlFindUsers = `
+		SELECT
+			"id",
+			"version",
+			"deleted",
+			"created_at",
+			"created_by",
+			"modified_at",
+			"modified_by",
+			"first_name",
+			"last_name",
+			"email",
+			"enabled",
+			"administrator"
+		FROM "authgo"."user"
+		ORDER BY "id";
+	`
+	sqlFindUser = `
+		SELECT
+			"id",
+			"version",
+			"deleted",
+			"created_at",
+			"created_by",
+			"modified_at",
+			"modified_by",
+			"first_name",
+			"last_name",
+			"email",
+			"enabled",
+			"administrator"
+		FROM "authgo"."user"
+		WHERE "id" = $1;
+	`
+	sqlFindUserByEmail = `
+		SELECT
+			"id",
+			"version",
+			"deleted",
+			"created_at",
+			"created_by",
+			"modified_at",
+			"modified_by",
+			"first_name",
+			"last_name",
+			"email",
+			"password",
+			"enabled",
+			"administrator"
+		FROM "authgo"."user"
+		WHERE "email" = $1;
+	`
+	sqlSaveUser = `
+		INSERT INTO "authgo"."user" (
+			"created_by",
+			"modified_by",
+			"first_name",
+			"last_name",
+			"email",
+			"password",
+			"enabled",
+			"administrator"
+		) VALUES (
+			:created_by,
+			:modified_by,
+			:first_name,
+			:last_name,
+			:email,
+			:password,
+			:enabled,
+			:administrator
+		) RETURNING "id";
+	`
+	sqlUpdateUser = `
+		UPDATE "authgo"."user" SET
+			"version" = :new_version,
+			"deleted" = :deleted,
+			"modified_at" = :modified_at,
+			"modified_by" = :modified_by,
+			"first_name" = :first_name,
+			"last_name" = :last_name,
+			"email" = :email,
+			"password" = :password,
+			"enabled" = :enabled,
+			"administrator" = :administrator
+		WHERE "id" = :id
+			AND "version" = :old_version;
+	`
 )
 
 var (
-	TimeFunc             = time.Now
-	ErrNoUpdatePerformed = errors.New("authgo/repository: no update")
+	TimeFunc = time.Now
 )
 
 type User struct {
@@ -50,7 +140,7 @@ func (u *User) IsInactive() bool {
 	return !u.Enabled || u.Deleted
 }
 
-func (u *User) Validate() (bool, error) {
+func (u *User) Validate() error {
 	r := validation.NewValidationResult()
 
 	if validation.IsBlank(u.CreatedBy) {
@@ -81,13 +171,15 @@ func (u *User) Validate() (bool, error) {
 		r.AddFieldError("password", "required")
 	}
 
-	return !r.HasFieldErrors(), r
+	if r.HasErrors() {
+		return r
+	}
+
+	return nil
 }
 
-type Users []*User
-
 type UsersFinder interface {
-	FindUsers() (*Users, error)
+	FindUsers() ([]User, error)
 }
 
 type UserFinder interface {
@@ -109,6 +201,7 @@ type UserUpdater interface {
 type UserDeleter interface{}
 
 type Repository interface {
+	Close() error
 	UsersFinder
 	UserFinder
 	UserByEmailFinder
@@ -125,138 +218,65 @@ func NewRepository() (Repository, error) {
 	db, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=postgres sslmode=disable")
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "authgo/repository: connection error")
 	}
 
 	return &DefaultRepository{db}, nil
 }
 
-func (r *DefaultRepository) FindUsers() (*Users, error) {
-	const q = `
-		SELECT
-			"id",
-			"version",
-			"deleted",
-			"created_at",
-			"created_by",
-			"modified_at",
-			"modified_by",
-			"first_name",
-			"last_name",
-			"email",
-			"enabled",
-			"administrator"
-		FROM "authgo"."user"
-		ORDER BY "id";
-	`
+func (r *DefaultRepository) Close() error {
+	return r.DB.Close()
+}
 
-	users := &Users{}
+func (r *DefaultRepository) FindUsers() ([]User, error) {
+	users := []User{}
 
-	err := r.DB.Select(users, q)
+	err := r.DB.Select(&users, sqlFindUsers)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "authgo/repository: error when finding users")
 	}
 
 	return users, nil
 }
 
 func (r *DefaultRepository) FindUser(id string) (*User, error) {
-	const q = `
-		SELECT
-			"id",
-			"version",
-			"deleted",
-			"created_at",
-			"created_by",
-			"modified_at",
-			"modified_by",
-			"first_name",
-			"last_name",
-			"email",
-			"enabled",
-			"administrator"
-		FROM "authgo"."user"
-		WHERE "id" = $1;
-	`
-
 	user := &User{}
 
-	err := r.DB.Get(user, q, id)
+	err := r.DB.Get(user, sqlFindUser, id)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "authgo/repository: error when finding user")
 	}
 
 	return user, nil
 }
 
 func (r *DefaultRepository) FindUserByEmail(email string) (*User, error) {
-	const q = `
-		SELECT
-			"id",
-			"version",
-			"deleted",
-			"created_at",
-			"created_by",
-			"modified_at",
-			"modified_by",
-			"first_name",
-			"last_name",
-			"email",
-			"password",
-			"enabled",
-			"administrator"
-		FROM "authgo"."user"
-		WHERE "email" = $1;
-	`
-
 	user := &User{}
 
-	err := r.DB.Get(user, q, email)
+	err := r.DB.Get(user, sqlFindUserByEmail, email)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "authgo/repository: error when finding user")
 	}
 
 	return user, nil
 }
 
 func (r *DefaultRepository) SaveUser(user *User) error {
-	const q = `
-		INSERT INTO "authgo"."user" (
-			"created_by",
-			"modified_by",
-			"first_name",
-			"last_name",
-			"email",
-			"password",
-			"enabled",
-			"administrator"
-		) VALUES (
-			:created_by,
-			:modified_by,
-			:first_name,
-			:last_name,
-			:email,
-			:password,
-			:enabled,
-			:administrator
-		) RETURNING "id";
-	`
-
-	stmt, err := r.DB.PrepareNamed(q)
+	stmt, err := r.DB.PrepareNamed(sqlSaveUser)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err, "authgo/repository: error when preparing statement")
 	}
 
 	defer stmt.Close()
@@ -266,7 +286,7 @@ func (r *DefaultRepository) SaveUser(user *User) error {
 	err = stmt.Get(&id, user)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err, "authgo/repository: error when saving user")
 	}
 
 	user.ID = id
@@ -275,25 +295,10 @@ func (r *DefaultRepository) SaveUser(user *User) error {
 }
 
 func (r *DefaultRepository) UpdateUser(user *User) error {
-	const q = `
-		UPDATE "authgo"."user" SET
-			"version" = :new_version,
-			"deleted" = :deleted,
-			"modified_at" = :modified_at,
-			"modified_by" = :modified_by,
-			"first_name" = :first_name,
-			"last_name" = :last_name,
-			"email" = :email,
-			"password" = :password,
-			"enabled" = :enabled,
-			"administrator" = :administrator
-		WHERE "id" = :id AND "version" = :old_version;
-	`
-
-	stmt, err := r.DB.PrepareNamed(q)
+	stmt, err := r.DB.PrepareNamed(sqlUpdateUser)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err, "authgo/repository: error when preparing statement")
 	}
 
 	defer stmt.Close()
@@ -309,17 +314,17 @@ func (r *DefaultRepository) UpdateUser(user *User) error {
 	)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err, "authgo/repository: error when updating user")
 	}
 
 	rowsAffected, err := result.RowsAffected()
 
 	if err != nil {
-		return err
+		return errors.Wrap(err, "authgo/repository: error when checking for rows affected")
 	}
 
 	if rowsAffected != 1 {
-		return ErrNoUpdatePerformed
+		return errors.New("authgo/repository: no update performed")
 	}
 
 	return nil

@@ -2,7 +2,6 @@ package security
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,22 +11,21 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/di0nys1us/httpgo"
+	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const (
-	JWTAudience = "eies.land"
-	JWTIssuer   = "authgo"
-	claimsKey   = JWTClaimsKey("JWTClaimsKey")
-	bearerToken = "Bearer %s"
+	jwtAudience   = "eies.land"
+	jwtIssuer     = "authgo"
+	jwtCookieName = "jwt"
+	claimsKey     = JWTClaimsKey("JWTClaimsKey")
+	bearerToken   = "Bearer %s"
 )
 
 var (
-	ErrMissingSecurityKey = errors.New("authgo/security: missing environment variable AUTHGO_KEY")
-	ErrInactiveSubject    = errors.New("authgo/security: non existent or inactive subject")
-	ErrMissingBearerToken = errors.New("authgo/security: missing bearer token")
-	TimeFunc              = time.Now
+	TimeFunc = time.Now
 )
 
 type Subject interface {
@@ -54,30 +52,12 @@ func NewSecurity(findSubjectFunc FindSubjectFunc) *DefaultSecurity {
 }
 
 type JWTClaims struct {
-	*jwt.StandardClaims
+	jwt.StandardClaims
 	UserID        int  `json:"uid"`
 	Administrator bool `json:"adm"`
 }
 
 type JWTClaimsKey string
-
-type ErrUnexpectedSigningMethod string
-
-func (e ErrUnexpectedSigningMethod) Error() string {
-	return fmt.Sprintf("authgo/security: unexpected signing method = %s", string(e))
-}
-
-type ErrInvalidToken string
-
-func (e ErrInvalidToken) Error() string {
-	return fmt.Sprintf("authgo/security: invalid token = %s", string(e))
-}
-
-type ErrInvalidClaims string
-
-func (e ErrInvalidClaims) Error() string {
-	return fmt.Sprintf("authgo/security: invalid claims = %s", string(e))
-}
 
 func newContextWithClaims(c context.Context, claims *JWTClaims) context.Context {
 	return context.WithValue(c, claimsKey, claims)
@@ -88,12 +68,47 @@ func GetClaimsFromContext(c context.Context) (*JWTClaims, bool) {
 	return claims, ok
 }
 
+func (s *DefaultSecurity) Authenticate(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
+	c := Credentials{}
+	err := httpgo.ReadJSON(r.Body, &c)
+
+	if err != nil {
+		log.Println(err)
+		return httpgo.ResponseForbidden(), nil
+	}
+
+	subject, err := s.resolveSubject(c)
+
+	if err != nil {
+		log.Println(err)
+		return httpgo.ResponseForbidden(), nil
+	}
+
+	token := createToken(subject)
+	secretKey, err := resolveSecurityKey(token)
+
+	if err != nil {
+		log.Println(err)
+		return httpgo.ResponseForbidden(), nil
+	}
+
+	tokenString, err := token.SignedString(secretKey)
+
+	if err != nil {
+		log.Println(err)
+		return httpgo.ResponseForbidden(), nil
+	}
+
+	return httpgo.ResponseOK().WithHeader(httpgo.HeaderAuthorization, fmt.Sprintf(bearerToken, tokenString)), nil
+}
+
 func ValidateJWT(next http.Handler) http.Handler {
 	handler := func(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
 		bearerToken := r.Header.Get(httpgo.HeaderAuthorization)
 		claims, err := extractClaims(bearerToken)
 
 		if err != nil {
+			log.Println(err)
 			return httpgo.ResponseUnauthorized(), nil
 		}
 
@@ -107,7 +122,7 @@ func ValidateJWT(next http.Handler) http.Handler {
 
 func extractClaims(bearerToken string) (*JWTClaims, error) {
 	if !strings.HasPrefix(bearerToken, "Bearer ") {
-		return nil, ErrMissingBearerToken
+		return nil, errors.New("authgo/security: missing bearer token")
 	}
 
 	tokenString := bearerToken[7:]
@@ -116,67 +131,33 @@ func extractClaims(bearerToken string) (*JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, claims, resolveSecurityKey)
 
 	if err != nil || !token.Valid {
-		return nil, ErrInvalidToken(err.Error())
+		return nil, errors.Wrap(err, "authgo/security: invalid token")
 	}
 
 	jwt.TimeFunc = TimeFunc
 
 	if err := claims.Valid(); err != nil {
-		return nil, ErrInvalidClaims(err.Error())
+		return nil, errors.Wrap(err, "authgo/security: invalid claims")
 	}
 
 	return claims, nil
-}
-
-func (s *DefaultSecurity) Authenticate(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
-	c := Credentials{}
-	err := httpgo.ReadJSON(r.Body, &c)
-
-	log.Println(r.Body)
-
-	if err != nil {
-		return httpgo.ResponseForbidden(), nil
-	}
-
-	subject, err := s.resolveSubject(c)
-
-	if err != nil {
-		return httpgo.ResponseForbidden(), nil
-	}
-
-	token := createToken(subject)
-	secretKey, err := resolveSecurityKey(token)
-
-	if err != nil {
-		return httpgo.ResponseForbidden(), nil
-	}
-
-	tokenString, err := token.SignedString(secretKey)
-
-	if err != nil {
-		return httpgo.ResponseForbidden(), nil
-	}
-
-	w.Header().Add(httpgo.HeaderAuthorization, fmt.Sprintf(bearerToken, tokenString))
-
-	return httpgo.ResponseOK().WithBody(subject), nil
 }
 
 func (s *DefaultSecurity) resolveSubject(c Credentials) (Subject, error) {
 	subject, err := s.FindSubjectFunc(c.Email)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "authgo/security: error when finding subject")
 	}
 
 	if subject == nil || subject.IsInactive() {
-		return nil, ErrInactiveSubject
+		return nil, errors.New("authgo/security: invalid subject")
 	}
 
 	err = validateHashedPassword(subject.GetPassword(), c.Password)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "authgo/security: invalid password")
 	}
 
 	return subject, nil
@@ -185,12 +166,12 @@ func (s *DefaultSecurity) resolveSubject(c Credentials) (Subject, error) {
 func createToken(s Subject) *jwt.Token {
 	now := TimeFunc()
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, &JWTClaims{
-		&jwt.StandardClaims{
-			Audience:  JWTAudience,
+		jwt.StandardClaims{
+			Audience:  jwtAudience,
 			ExpiresAt: now.AddDate(0, 0, 1).Unix(),
 			Id:        uuid.NewV4().String(),
 			IssuedAt:  now.Unix(),
-			Issuer:    JWTIssuer,
+			Issuer:    jwtIssuer,
 			NotBefore: now.Unix(),
 			Subject:   s.GetEmail(),
 		},
@@ -201,14 +182,16 @@ func createToken(s Subject) *jwt.Token {
 
 func resolveSecurityKey(t *jwt.Token) (interface{}, error) {
 	if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-		return nil, ErrUnexpectedSigningMethod(t.Header["alg"].(string))
+		return nil, errors.New("authgo/security: invalid signing method")
 	}
 
-	if securityKey, ok := os.LookupEnv("AUTHGO_KEY"); !ok {
-		return nil, ErrMissingSecurityKey
-	} else {
-		return []byte(securityKey), nil
+	securityKey, ok := os.LookupEnv("AUTHGO_KEY")
+
+	if !ok {
+		return nil, errors.New("authgo/security: missing environment variable AUTHGO_KEY")
 	}
+
+	return []byte(securityKey), nil
 }
 
 func validateHashedPassword(hashedPassword, password string) error {
@@ -217,5 +200,5 @@ func validateHashedPassword(hashedPassword, password string) error {
 
 func GenerateHashedPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	return string(hashedPassword), err
+	return string(hashedPassword), errors.Wrap(err, "authgo/security: error when generating hashed password")
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/di0nys1us/httpgo"
+	"github.com/pkg/errors"
 
 	"github.com/di0nys1us/authgo/handlers"
 	"github.com/di0nys1us/authgo/repository"
@@ -44,12 +45,14 @@ func createRouter() *chi.Mux {
 		log.Fatalln(err)
 	}
 
+	//defer r.Close()
+
 	a := handlers.NewAPI(r)
 	s := security.NewSecurity(func(email string) (security.Subject, error) {
 		user, err := r.FindUserByEmail(email)
 
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "authgo: error when finding user")
 		}
 
 		if user == nil {
