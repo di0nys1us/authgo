@@ -33,7 +33,7 @@ func TestResolveSecurityKey(t *testing.T) {
 
 func TestGetClaimsFromContext(t *testing.T) {
 	testClaims := &jwtClaims{
-		StandardClaims: jwt.StandardClaims{Subject: "foo@bar.net"},
+		StandardClaims: &jwt.StandardClaims{Subject: "foo@bar.net"},
 	}
 
 	c := context.Background()
