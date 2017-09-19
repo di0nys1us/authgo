@@ -16,31 +16,23 @@ func TestResolveSecurityKey(t *testing.T) {
 
 	token := jwt.New(jwt.SigningMethodES256)
 
-	securityKey, err := resolveSecurityKey(token)
+	securityKey, _ := resolveSecurityKey(token)
 
 	if securityKey != nil {
 		t.Errorf("got %v, want nil", securityKey)
-	}
-
-	if _, ok := err.(ErrUnexpectedSigningMethod); !ok {
-		t.Errorf("got %T, want %T", err, ErrUnexpectedSigningMethod(""))
 	}
 
 	token = jwt.New(jwt.SigningMethodHS256)
 
-	securityKey, err = resolveSecurityKey(token)
+	securityKey, _ = resolveSecurityKey(token)
 
 	if securityKey != nil {
 		t.Errorf("got %v, want nil", securityKey)
 	}
-
-	if err != ErrMissingSecurityKey {
-		t.Errorf("got %s, want %s", err, ErrMissingSecurityKey)
-	}
 }
 
 func TestGetClaimsFromContext(t *testing.T) {
-	testClaims := &JWTClaims{
+	testClaims := &jwtClaims{
 		StandardClaims: jwt.StandardClaims{Subject: "foo@bar.net"},
 	}
 
@@ -58,7 +50,7 @@ func TestGetClaimsFromContext(t *testing.T) {
 }
 
 func TestValidateJWT(t *testing.T) {
-	handler := ValidateJWT(httpgo.ResponseHandlerFunc(func(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
+	handler := Authorize(httpgo.ResponseHandlerFunc(func(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
 		return httpgo.ResponseOK().WithBody(true), nil
 	}))
 

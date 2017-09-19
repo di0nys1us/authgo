@@ -2,11 +2,9 @@ package security
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -19,8 +17,8 @@ import (
 const (
 	jwtAudience   = "eies.land"
 	jwtIssuer     = "authgo"
-	jwtCookieName = "jwt"
-	claimsKey     = JWTClaimsKey("JWTClaimsKey")
+	jwtCookieName = "authgo_token"
+	claimsKey     = jwtClaimsKey("jwtClaimsKey")
 	bearerToken   = "Bearer %s"
 )
 
@@ -36,122 +34,119 @@ type Subject interface {
 	IsInactive() bool
 }
 
-type Credentials struct {
+type user struct {
+	ID            int    `json:"id"`
+	Email         string `json:"email"`
+	Administrator bool   `json:"administrator"`
+}
+
+type credentials struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-type FindSubjectFunc func(email string) (Subject, error)
-
-type DefaultSecurity struct {
-	FindSubjectFunc FindSubjectFunc
-}
-
-func NewSecurity(findSubjectFunc FindSubjectFunc) *DefaultSecurity {
-	return &DefaultSecurity{findSubjectFunc}
-}
-
-type JWTClaims struct {
-	jwt.StandardClaims
+type jwtClaims struct {
+	*jwt.StandardClaims
 	UserID        int  `json:"uid"`
 	Administrator bool `json:"adm"`
 }
 
-type JWTClaimsKey string
+type jwtClaimsKey string
 
-func newContextWithClaims(c context.Context, claims *JWTClaims) context.Context {
+type token struct {
+	token       *jwt.Token
+	signedToken string
+	claims      *jwtClaims
+	expires     time.Time
+}
+
+type authentication struct {
+	subject Subject
+	token   *token
+}
+
+type authorization struct {
+	claims *jwtClaims
+}
+
+type findSubjectFunc func(email string) (Subject, error)
+
+type defaultSecurity struct {
+	findSubjectFunc findSubjectFunc
+}
+
+func NewSecurity(findSubjectFunc findSubjectFunc) *defaultSecurity {
+	return &defaultSecurity{findSubjectFunc}
+}
+
+func newContextWithClaims(c context.Context, claims *jwtClaims) context.Context {
 	return context.WithValue(c, claimsKey, claims)
 }
 
-func GetClaimsFromContext(c context.Context) (*JWTClaims, bool) {
-	claims, ok := c.Value(claimsKey).(*JWTClaims)
+func GetClaimsFromContext(c context.Context) (*jwtClaims, bool) {
+	claims, ok := c.Value(claimsKey).(*jwtClaims)
 	return claims, ok
 }
 
-func (s *DefaultSecurity) Authenticate(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
-	c := Credentials{}
-	err := httpgo.ReadJSON(r.Body, &c)
+func (s *defaultSecurity) Authenticate(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
+	a, err := s.authenticateRequest(r)
 
 	if err != nil {
 		log.Println(err)
 		return httpgo.ResponseForbidden(), nil
+	}
+
+	cookie := http.Cookie{
+		Name:     jwtCookieName,
+		Value:    a.token.signedToken,
+		Expires:  a.token.expires,
+		HttpOnly: true,
+	}
+	user := &user{a.subject.GetID(), a.subject.GetEmail(), a.subject.IsAdministrator()}
+
+	return httpgo.ResponseOK().WithCookie(cookie).WithBody(user), nil
+}
+
+func (s *defaultSecurity) authenticateRequest(r *http.Request) (*authentication, error) {
+	c := credentials{}
+	err := httpgo.ReadJSON(r.Body, &c)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "authgo/security: error when reading credentials")
 	}
 
 	subject, err := s.resolveSubject(c)
 
 	if err != nil {
-		log.Println(err)
-		return httpgo.ResponseForbidden(), nil
+		return nil, errors.Wrap(err, "authgo/security: error when resolving subject")
 	}
 
-	token := createToken(subject)
-	secretKey, err := resolveSecurityKey(token)
+	t, err := createToken(subject)
 
 	if err != nil {
-		log.Println(err)
-		return httpgo.ResponseForbidden(), nil
+		return nil, errors.Wrap(err, "authgo/security: error when creating token")
 	}
 
-	tokenString, err := token.SignedString(secretKey)
-
-	if err != nil {
-		log.Println(err)
-		return httpgo.ResponseForbidden(), nil
-	}
-
-	return httpgo.ResponseOK().WithHeader(httpgo.HeaderAuthorization, fmt.Sprintf(bearerToken, tokenString)), nil
+	return &authentication{subject, t}, nil
 }
 
-func ValidateJWT(next http.Handler) http.Handler {
-	handler := func(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
-		bearerToken := r.Header.Get(httpgo.HeaderAuthorization)
-		claims, err := extractClaims(bearerToken)
-
-		if err != nil {
-			log.Println(err)
-			return httpgo.ResponseUnauthorized(), nil
-		}
-
-		next.ServeHTTP(w, r.WithContext(newContextWithClaims(r.Context(), claims)))
-
-		return nil, nil
+func (s *defaultSecurity) resolveSubject(c credentials) (Subject, error) {
+	if s.findSubjectFunc == nil {
+		return nil, errors.New("authgo/security: findSubjectFunc is not set")
 	}
 
-	return httpgo.ResponseHandlerFunc(handler)
-}
-
-func extractClaims(bearerToken string) (*JWTClaims, error) {
-	if !strings.HasPrefix(bearerToken, "Bearer ") {
-		return nil, errors.New("authgo/security: missing bearer token")
-	}
-
-	tokenString := bearerToken[7:]
-	claims := &JWTClaims{}
-
-	token, err := jwt.ParseWithClaims(tokenString, claims, resolveSecurityKey)
-
-	if err != nil || !token.Valid {
-		return nil, errors.Wrap(err, "authgo/security: invalid token")
-	}
-
-	jwt.TimeFunc = TimeFunc
-
-	if err := claims.Valid(); err != nil {
-		return nil, errors.Wrap(err, "authgo/security: invalid claims")
-	}
-
-	return claims, nil
-}
-
-func (s *DefaultSecurity) resolveSubject(c Credentials) (Subject, error) {
-	subject, err := s.FindSubjectFunc(c.Email)
+	subject, err := s.findSubjectFunc(c.Email)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: error when finding subject")
 	}
 
-	if subject == nil || subject.IsInactive() {
-		return nil, errors.New("authgo/security: invalid subject")
+	if subject == nil {
+		return nil, errors.New("authgo/security: subject is nil")
+	}
+
+	if subject.IsInactive() {
+		return nil, errors.New("authgo/security: subject is inactive")
 	}
 
 	err = validateHashedPassword(subject.GetPassword(), c.Password)
@@ -163,12 +158,13 @@ func (s *DefaultSecurity) resolveSubject(c Credentials) (Subject, error) {
 	return subject, nil
 }
 
-func createToken(s Subject) *jwt.Token {
+func createToken(s Subject) (*token, error) {
 	now := TimeFunc()
-	return jwt.NewWithClaims(jwt.SigningMethodHS256, &JWTClaims{
-		jwt.StandardClaims{
+	expires := now.AddDate(0, 0, 1)
+	claims := &jwtClaims{
+		&jwt.StandardClaims{
 			Audience:  jwtAudience,
-			ExpiresAt: now.AddDate(0, 0, 1).Unix(),
+			ExpiresAt: expires.Unix(),
 			Id:        uuid.NewV4().String(),
 			IssuedAt:  now.Unix(),
 			Issuer:    jwtIssuer,
@@ -177,7 +173,64 @@ func createToken(s Subject) *jwt.Token {
 		},
 		s.GetID(),
 		s.IsAdministrator(),
+	}
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	secretKey, err := resolveSecurityKey(t)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "authgo/security: error when resolving security key")
+	}
+
+	signedToken, err := t.SignedString(secretKey)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "authgo/security: error when signing the token")
+	}
+
+	return &token{t, signedToken, claims, expires}, nil
+}
+
+func Authorize(next http.Handler) http.Handler {
+	return httpgo.ResponseHandlerFunc(func(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
+		a, err := authorizeRequest(r)
+
+		if err != nil {
+			log.Println(err)
+			return httpgo.ResponseUnauthorized(), nil
+		}
+
+		next.ServeHTTP(w, r.WithContext(newContextWithClaims(r.Context(), a.claims)))
+
+		return nil, nil
 	})
+}
+
+func authorizeRequest(r *http.Request) (*authorization, error) {
+	cookie, err := r.Cookie(jwtCookieName)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "authgo/security: missing cookie")
+	}
+
+	claims := &jwtClaims{}
+	token, err := jwt.ParseWithClaims(cookie.Value, claims, resolveSecurityKey)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "authgo/security: token error")
+	}
+
+	if !token.Valid {
+		return nil, errors.Wrap(err, "authgo/security: invalid token")
+	}
+
+	jwt.TimeFunc = TimeFunc
+
+	if err := claims.Valid(); err != nil {
+		return nil, errors.Wrap(err, "authgo/security: invalid claims")
+	}
+
+	return &authorization{claims}, nil
 }
 
 func resolveSecurityKey(t *jwt.Token) (interface{}, error) {
@@ -195,7 +248,8 @@ func resolveSecurityKey(t *jwt.Token) (interface{}, error) {
 }
 
 func validateHashedPassword(hashedPassword, password string) error {
-	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	return errors.Wrap(err, "authgo/security: error when validating hashed password")
 }
 
 func GenerateHashedPassword(password string) (string, error) {

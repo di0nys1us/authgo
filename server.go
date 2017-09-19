@@ -66,7 +66,7 @@ func createRouter() *chi.Mux {
 
 	// Protected routes
 	router.Group(func(g chi.Router) {
-		g.Use(security.ValidateJWT)
+		g.Use(security.Authorize)
 
 		g.Method(http.MethodGet, "/users", httpgo.ResponseHandlerFunc(a.GetUsers))
 		g.Method(http.MethodGet, "/users/{id:[0-9]+}", httpgo.ResponseHandlerFunc(a.GetUser))
