@@ -1,3 +1,5 @@
+CREATE SCHEMA "authgo";
+
 CREATE TABLE "authgo"."user" (
     "id" BIGSERIAL NOT NULL,
     "version" BIGINT NOT NULL DEFAULT 0,
@@ -14,4 +16,4 @@ CREATE TABLE "authgo"."user" (
     "administrator" BOOLEAN NOT NULL DEFAULT FALSE,
 
     PRIMARY KEY ("id")
-)
+);

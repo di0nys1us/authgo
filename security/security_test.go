@@ -4,36 +4,17 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/di0nys1us/httpgo"
 )
 
-func TestResolveSecurityKey(t *testing.T) {
-	os.Setenv("", "")
-
-	token := jwt.New(jwt.SigningMethodES256)
-
-	securityKey, _ := resolveSecurityKey(token)
-
-	if securityKey != nil {
-		t.Errorf("got %v, want nil", securityKey)
-	}
-
-	token = jwt.New(jwt.SigningMethodHS256)
-
-	securityKey, _ = resolveSecurityKey(token)
-
-	if securityKey != nil {
-		t.Errorf("got %v, want nil", securityKey)
-	}
-}
-
 func TestGetClaimsFromContext(t *testing.T) {
 	testClaims := &jwtClaims{
-		StandardClaims: &jwt.StandardClaims{Subject: "foo@bar.net"},
+		StandardClaims: &jwt.StandardClaims{Subject: "test@test.net"},
 	}
 
 	c := context.Background()
@@ -49,18 +30,24 @@ func TestGetClaimsFromContext(t *testing.T) {
 	}
 }
 
-func TestValidateJWT(t *testing.T) {
-	handler := Authorize(httpgo.ResponseHandlerFunc(func(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
-		return httpgo.ResponseOK().WithBody(true), nil
+func TestAuthorize(t *testing.T) {
+	handler := Authorize(httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		return nil
 	}))
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/", nil)
-	r.Header.Add(httpgo.HeaderAuthorization, "Bearer TEST")
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
 
 	handler.ServeHTTP(w, r)
 
-	if code := w.Result().StatusCode; code != http.StatusUnauthorized {
-		t.Errorf("got %d, want %d", code, http.StatusUnauthorized)
-	}
+	assert.Exactly(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestInvalidate(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	err := Invalidate(w, r)
+
+	assert.Nil(t, err)
 }

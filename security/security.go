@@ -2,28 +2,27 @@ package security
 
 import (
 	"context"
-	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/di0nys1us/httpgo"
 	"github.com/pkg/errors"
-	"github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const (
-	jwtAudience   = "eies.land"
-	jwtIssuer     = "authgo"
-	jwtCookieName = "authgo_token"
-	claimsKey     = jwtClaimsKey("jwtClaimsKey")
-	bearerToken   = "Bearer %s"
+	jwtAudience            = "eies.land"
+	jwtIssuer              = "authgo"
+	jwtCookieName          = "authgo_token"
+	claimsKey              = jwtClaimsKey("jwtClaimsKey")
+	environmentSecurityKey = "AUTHGO_SECURITY_KEY"
 )
 
 var (
-	TimeFunc = time.Now
+	TimeFunc                = time.Now
+	errInvalidSigningMethod = errors.New("authgo/security: invalid signing method")
+	errMissingSecurityKey   = errors.New("authgo/security: missing environment variable AUTHGO_SECURITY_KEY")
 )
 
 type Subject interface {
@@ -40,29 +39,11 @@ type user struct {
 	Administrator bool   `json:"administrator"`
 }
 
-type credentials struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type jwtClaims struct {
-	*jwt.StandardClaims
-	UserID        int  `json:"uid"`
-	Administrator bool `json:"adm"`
-}
-
 type jwtClaimsKey string
-
-type token struct {
-	token       *jwt.Token
-	signedToken string
-	claims      *jwtClaims
-	expires     time.Time
-}
 
 type authentication struct {
 	subject Subject
-	token   *token
+	token   *tokenHolder
 }
 
 type authorization struct {
@@ -88,34 +69,33 @@ func GetClaimsFromContext(c context.Context) (*jwtClaims, bool) {
 	return claims, ok
 }
 
-func (s *defaultSecurity) Authenticate(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
+func (s *defaultSecurity) Authenticate(w http.ResponseWriter, r *http.Request) error {
 	a, err := s.authenticateRequest(r)
 
 	if err != nil {
-		log.Println(err)
-		return httpgo.ResponseForbidden(), nil
+		return err
 	}
 
-	cookie := http.Cookie{
+	http.SetCookie(w, &http.Cookie{
 		Name:     jwtCookieName,
 		Value:    a.token.signedToken,
 		Expires:  a.token.expires,
 		HttpOnly: true,
-	}
+		Secure:   false,
+	})
 	user := &user{a.subject.GetID(), a.subject.GetEmail(), a.subject.IsAdministrator()}
 
-	return httpgo.ResponseOK().WithCookie(cookie).WithBody(user), nil
+	return httpgo.WriteJSON(w, http.StatusOK, user)
 }
 
 func (s *defaultSecurity) authenticateRequest(r *http.Request) (*authentication, error) {
-	c := credentials{}
-	err := httpgo.ReadJSON(r.Body, &c)
+	err := errors.New("")
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: error when reading credentials")
 	}
 
-	subject, err := s.resolveSubject(c)
+	subject, err := s.resolveSubject("", "")
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: error when resolving subject")
@@ -130,12 +110,12 @@ func (s *defaultSecurity) authenticateRequest(r *http.Request) (*authentication,
 	return &authentication{subject, t}, nil
 }
 
-func (s *defaultSecurity) resolveSubject(c credentials) (Subject, error) {
+func (s *defaultSecurity) resolveSubject(email, password string) (Subject, error) {
 	if s.findSubjectFunc == nil {
 		return nil, errors.New("authgo/security: findSubjectFunc is not set")
 	}
 
-	subject, err := s.findSubjectFunc(c.Email)
+	subject, err := s.findSubjectFunc(email)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: error when finding subject")
@@ -149,7 +129,7 @@ func (s *defaultSecurity) resolveSubject(c credentials) (Subject, error) {
 		return nil, errors.New("authgo/security: subject is inactive")
 	}
 
-	err = validateHashedPassword(subject.GetPassword(), c.Password)
+	err = validateHashedPassword(subject.GetPassword(), password)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: invalid password")
@@ -158,51 +138,17 @@ func (s *defaultSecurity) resolveSubject(c credentials) (Subject, error) {
 	return subject, nil
 }
 
-func createToken(s Subject) (*token, error) {
-	now := TimeFunc()
-	expires := now.AddDate(0, 0, 1)
-	claims := &jwtClaims{
-		&jwt.StandardClaims{
-			Audience:  jwtAudience,
-			ExpiresAt: expires.Unix(),
-			Id:        uuid.NewV4().String(),
-			IssuedAt:  now.Unix(),
-			Issuer:    jwtIssuer,
-			NotBefore: now.Unix(),
-			Subject:   s.GetEmail(),
-		},
-		s.GetID(),
-		s.IsAdministrator(),
-	}
-	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	secretKey, err := resolveSecurityKey(t)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "authgo/security: error when resolving security key")
-	}
-
-	signedToken, err := t.SignedString(secretKey)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "authgo/security: error when signing the token")
-	}
-
-	return &token{t, signedToken, claims, expires}, nil
-}
-
 func Authorize(next http.Handler) http.Handler {
-	return httpgo.ResponseHandlerFunc(func(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
+	return httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
 		a, err := authorizeRequest(r)
 
 		if err != nil {
-			log.Println(err)
-			return httpgo.ResponseUnauthorized(), nil
+			return err
 		}
 
 		next.ServeHTTP(w, r.WithContext(newContextWithClaims(r.Context(), a.claims)))
 
-		return nil, nil
+		return nil
 	})
 }
 
@@ -233,20 +179,6 @@ func authorizeRequest(r *http.Request) (*authorization, error) {
 	return &authorization{claims}, nil
 }
 
-func resolveSecurityKey(t *jwt.Token) (interface{}, error) {
-	if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-		return nil, errors.New("authgo/security: invalid signing method")
-	}
-
-	securityKey, ok := os.LookupEnv("AUTHGO_KEY")
-
-	if !ok {
-		return nil, errors.New("authgo/security: missing environment variable AUTHGO_KEY")
-	}
-
-	return []byte(securityKey), nil
-}
-
 func validateHashedPassword(hashedPassword, password string) error {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 	return errors.Wrap(err, "authgo/security: error when validating hashed password")
@@ -255,4 +187,16 @@ func validateHashedPassword(hashedPassword, password string) error {
 func GenerateHashedPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(hashedPassword), errors.Wrap(err, "authgo/security: error when generating hashed password")
+}
+
+func Invalidate(w http.ResponseWriter, r *http.Request) error {
+	http.SetCookie(w, &http.Cookie{
+		Name:     jwtCookieName,
+		Value:    "",
+		Expires:  time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC),
+		HttpOnly: true,
+		Secure:   false,
+	})
+
+	return nil
 }

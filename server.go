@@ -26,7 +26,7 @@ func main() {
 	err := godotenv.Load()
 
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 
 	addr := fmt.Sprintf(":%s", defaultPort)
@@ -35,19 +35,19 @@ func main() {
 		addr = fmt.Sprintf(":%s", port)
 	}
 
-	log.Fatalln(http.ListenAndServe(addr, createRouter()))
+	log.Fatal(http.ListenAndServe(addr, createRouter()))
 }
 
 func createRouter() *chi.Mux {
 	r, err := repository.NewRepository()
 
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 
 	//defer r.Close()
 
-	a := handlers.NewAPI(r)
+	h := handlers.NewHandler(r)
 	s := security.NewSecurity(func(email string) (security.Subject, error) {
 		user, err := r.FindUserByEmail(email)
 
@@ -68,15 +68,16 @@ func createRouter() *chi.Mux {
 	router.Group(func(g chi.Router) {
 		g.Use(security.Authorize)
 
-		g.Method(http.MethodGet, "/users", httpgo.ResponseHandlerFunc(a.GetUsers))
-		g.Method(http.MethodGet, "/users/{id:[0-9]+}", httpgo.ResponseHandlerFunc(a.GetUser))
-		g.Method(http.MethodPost, "/users", httpgo.ResponseHandlerFunc(a.PostUser))
-		g.Method(http.MethodPut, "/users/{id:[0-9]+}", httpgo.ResponseHandlerFunc(a.PutUser))
+		g.Method(http.MethodGet, "/users", httpgo.ErrorHandlerFunc(h.GetUsers))
+		g.Method(http.MethodGet, "/users/{id:[0-9]+}", httpgo.ErrorHandlerFunc(h.GetUser))
+		g.Method(http.MethodPost, "/users", httpgo.ErrorHandlerFunc(h.PostUser))
+		g.Method(http.MethodPut, "/users/{id:[0-9]+}", httpgo.ErrorHandlerFunc(h.PutUser))
 	})
 
 	// Public routes
 	router.Group(func(g chi.Router) {
-		g.Method(http.MethodPost, "/authenticate", httpgo.ResponseHandlerFunc(s.Authenticate))
+		g.Method(http.MethodPost, "/authenticate", httpgo.ErrorHandlerFunc(s.Authenticate))
+		g.Method(http.MethodGet, "/invalidate", httpgo.ErrorHandlerFunc(security.Invalidate))
 	})
 
 	return router

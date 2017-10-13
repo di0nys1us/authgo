@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/di0nys1us/valigo"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 )
@@ -140,44 +139,6 @@ func (u *User) IsInactive() bool {
 	return !u.Enabled || u.Deleted
 }
 
-func (u *User) Validate() error {
-	r := validation.NewValidationResult()
-
-	if validation.IsBlank(u.CreatedBy) {
-		r.AddFieldError("createdBy", "required")
-	}
-
-	if validation.IsBlank(u.ModifiedBy) {
-		r.AddFieldError("modifiedBy", "required")
-	}
-
-	if validation.IsBlank(u.FirstName) {
-		r.AddFieldError("firstName", "required")
-	}
-
-	if validation.IsBlank(u.LastName) {
-		r.AddFieldError("lastName", "required")
-	}
-
-	if validation.IsBlank(u.Email) {
-		r.AddFieldError("email", "required")
-	}
-
-	if !validation.IsEmail(u.Email) {
-		r.AddFieldError("email", "email")
-	}
-
-	if validation.IsBlank(u.Password) {
-		r.AddFieldError("password", "required")
-	}
-
-	if r.HasErrors() {
-		return r
-	}
-
-	return nil
-}
-
 type UsersFinder interface {
 	FindUsers() ([]User, error)
 }
@@ -200,8 +161,8 @@ type UserUpdater interface {
 
 type UserDeleter interface{}
 
-type Repository interface {
-	Close() error
+type Repository struct {
+	DB *sqlx.DB
 	UsersFinder
 	UserFinder
 	UserByEmailFinder
@@ -210,25 +171,21 @@ type Repository interface {
 	UserDeleter
 }
 
-type DefaultRepository struct {
-	DB *sqlx.DB
-}
-
-func NewRepository() (Repository, error) {
+func NewRepository() (*Repository, error) {
 	db, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=postgres sslmode=disable")
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/repository: connection error")
 	}
 
-	return &DefaultRepository{db}, nil
+	return &Repository{DB: db}, nil
 }
 
-func (r *DefaultRepository) Close() error {
+func (r *Repository) Close() error {
 	return r.DB.Close()
 }
 
-func (r *DefaultRepository) FindUsers() ([]User, error) {
+func (r *Repository) FindUsers() ([]User, error) {
 	users := []User{}
 
 	err := r.DB.Select(&users, sqlFindUsers)
@@ -240,7 +197,7 @@ func (r *DefaultRepository) FindUsers() ([]User, error) {
 	return users, nil
 }
 
-func (r *DefaultRepository) FindUser(id string) (*User, error) {
+func (r *Repository) FindUser(id string) (*User, error) {
 	user := &User{}
 
 	err := r.DB.Get(user, sqlFindUser, id)
@@ -256,7 +213,7 @@ func (r *DefaultRepository) FindUser(id string) (*User, error) {
 	return user, nil
 }
 
-func (r *DefaultRepository) FindUserByEmail(email string) (*User, error) {
+func (r *Repository) FindUserByEmail(email string) (*User, error) {
 	user := &User{}
 
 	err := r.DB.Get(user, sqlFindUserByEmail, email)
@@ -272,7 +229,7 @@ func (r *DefaultRepository) FindUserByEmail(email string) (*User, error) {
 	return user, nil
 }
 
-func (r *DefaultRepository) SaveUser(user *User) error {
+func (r *Repository) SaveUser(user *User) error {
 	stmt, err := r.DB.PrepareNamed(sqlSaveUser)
 
 	if err != nil {
@@ -294,7 +251,7 @@ func (r *DefaultRepository) SaveUser(user *User) error {
 	return nil
 }
 
-func (r *DefaultRepository) UpdateUser(user *User) error {
+func (r *Repository) UpdateUser(user *User) error {
 	stmt, err := r.DB.PrepareNamed(sqlUpdateUser)
 
 	if err != nil {

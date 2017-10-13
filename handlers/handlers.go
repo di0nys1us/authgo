@@ -13,123 +13,96 @@ import (
 	"github.com/di0nys1us/httpgo"
 )
 
-type UsersGetter interface {
-	GetUsers(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error)
+type Handler struct {
+	Repository *repository.Repository
 }
 
-type UserGetter interface {
-	GetUser(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error)
+func NewHandler(r *repository.Repository) *Handler {
+	return &Handler{r}
 }
 
-type UserPoster interface {
-	PostUser(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error)
-}
-
-type UserPutter interface {
-	PutUser(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error)
-}
-
-type API interface {
-	UsersGetter
-	UserGetter
-	UserPoster
-	UserPutter
-}
-
-type DefaultAPI struct {
-	Repository repository.Repository
-}
-
-func NewAPI(repository repository.Repository) API {
-	return &DefaultAPI{repository}
-}
-
-func (a *DefaultAPI) GetUsers(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
+func (a *Handler) GetUsers(w http.ResponseWriter, r *http.Request) error {
 	users, err := a.Repository.FindUsers()
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return httpgo.ResponseOK().WithBody(users), nil
+	return httpgo.WriteJSON(w, http.StatusOK, users)
 }
 
-func (a *DefaultAPI) GetUser(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
+func (a *Handler) GetUser(w http.ResponseWriter, r *http.Request) error {
 	id := chi.URLParam(r, "id")
 
 	user, err := a.Repository.FindUser(id)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if user == nil {
-		return httpgo.ResponseNoContent(), nil
+		return httpgo.WriteJSON(w, http.StatusNoContent, nil)
 	}
 
-	return httpgo.ResponseOK().WithBody(user), nil
+	return httpgo.WriteJSON(w, http.StatusOK, user)
 }
 
-func (a *DefaultAPI) PostUser(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
+func (a *Handler) PostUser(w http.ResponseWriter, r *http.Request) error {
 	user := &repository.User{}
 	err := httpgo.ReadJSON(r.Body, user)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	err = updateUser(user, r.Context())
+	err = prepareUser(user, r.Context())
 
 	if err != nil {
-		return nil, err
-	}
-
-	if err := user.Validate(); err != nil {
-		return httpgo.ResponseBadRequest().WithBody(err), nil
+		return err
 	}
 
 	err = a.Repository.SaveUser(user)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	user.Password = ""
 
-	return httpgo.ResponseOK().WithBody(user), nil
+	return httpgo.WriteJSON(w, http.StatusCreated, user)
 }
 
-func (a *DefaultAPI) PutUser(w http.ResponseWriter, r *http.Request) (*httpgo.Response, error) {
+func (a *Handler) PutUser(w http.ResponseWriter, r *http.Request) error {
 	id := chi.URLParam(r, "id")
 	user := &repository.User{}
 	err := httpgo.ReadJSON(r.Body, user)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if id != strconv.Itoa(user.ID) {
-		return nil, errors.New("authgo/handlers: id mismatch")
+		return errors.New("authgo/handlers: id mismatch")
 	}
 
-	err = updateUser(user, r.Context())
+	err = prepareUser(user, r.Context())
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = a.Repository.UpdateUser(user)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	user.Password = ""
 
-	return httpgo.ResponseOK().WithBody(user), nil
+	return httpgo.WriteJSON(w, http.StatusOK, user)
 }
 
-func updateUser(u *repository.User, ctx context.Context) error {
+func prepareUser(u *repository.User, ctx context.Context) error {
 	var subject string
 
 	if claims, ok := security.GetClaimsFromContext(ctx); ok {
