@@ -22,6 +22,30 @@ const (
 	defaultPort = "3000"
 )
 
+type subject struct {
+	*repository.User
+}
+
+func (s *subject) ID() int {
+	return s.User.ID
+}
+
+func (s *subject) Email() string {
+	return s.User.Email
+}
+
+func (s *subject) Password() string {
+	return s.User.Password
+}
+
+func (s *subject) Administrator() bool {
+	return s.User.Administrator
+}
+
+func (s *subject) Enabled() bool {
+	return s.User.Enabled && !s.User.Deleted
+}
+
 func main() {
 	err := godotenv.Load()
 
@@ -59,7 +83,7 @@ func createRouter() *chi.Mux {
 			return nil, nil
 		}
 
-		return user, nil
+		return &subject{user}, nil
 	})
 
 	router := chi.NewRouter()

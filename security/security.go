@@ -26,24 +26,24 @@ var (
 )
 
 type Subject interface {
-	GetID() int
-	GetEmail() string
-	GetPassword() string
-	IsAdministrator() bool
-	IsInactive() bool
+	ID() int
+	Username() string
+	Password() string
+	Administrator() bool
+	Enabled() bool
 }
 
 type user struct {
 	ID            int    `json:"id"`
-	Email         string `json:"email"`
+	Username      string `json:"username"`
 	Administrator bool   `json:"administrator"`
 }
 
 type jwtClaimsKey string
 
 type authentication struct {
-	subject Subject
-	token   *tokenHolder
+	subject     Subject
+	tokenHolder *tokenHolder
 }
 
 type authorization struct {
@@ -78,24 +78,25 @@ func (s *defaultSecurity) Authenticate(w http.ResponseWriter, r *http.Request) e
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     jwtCookieName,
-		Value:    a.token.signedToken,
-		Expires:  a.token.expires,
+		Value:    a.tokenHolder.signedToken,
+		Expires:  a.tokenHolder.expires,
 		HttpOnly: true,
 		Secure:   false,
 	})
-	user := &user{a.subject.GetID(), a.subject.GetEmail(), a.subject.IsAdministrator()}
+
+	user := &user{a.subject.ID(), a.subject.Username(), a.subject.Administrator()}
 
 	return httpgo.WriteJSON(w, http.StatusOK, user)
 }
 
 func (s *defaultSecurity) authenticateRequest(r *http.Request) (*authentication, error) {
-	err := errors.New("")
+	err := r.ParseForm()
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: error when reading credentials")
 	}
 
-	subject, err := s.resolveSubject("", "")
+	subject, err := s.resolveSubject(r.Form.Get("email"), r.Form.Get("password"))
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: error when resolving subject")
@@ -125,11 +126,11 @@ func (s *defaultSecurity) resolveSubject(email, password string) (Subject, error
 		return nil, errors.New("authgo/security: subject is nil")
 	}
 
-	if subject.IsInactive() {
-		return nil, errors.New("authgo/security: subject is inactive")
+	if !subject.Enabled() {
+		return nil, errors.New("authgo/security: subject is not enabled")
 	}
 
-	err = validateHashedPassword(subject.GetPassword(), password)
+	err = validateHashedPassword(subject.Password(), password)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: invalid password")

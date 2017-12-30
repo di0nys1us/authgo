@@ -2,7 +2,6 @@ package repository
 
 import (
 	"database/sql"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
@@ -14,10 +13,6 @@ const (
 			"id",
 			"version",
 			"deleted",
-			"created_at",
-			"created_by",
-			"modified_at",
-			"modified_by",
 			"first_name",
 			"last_name",
 			"email",
@@ -31,10 +26,6 @@ const (
 			"id",
 			"version",
 			"deleted",
-			"created_at",
-			"created_by",
-			"modified_at",
-			"modified_by",
 			"first_name",
 			"last_name",
 			"email",
@@ -48,10 +39,6 @@ const (
 			"id",
 			"version",
 			"deleted",
-			"created_at",
-			"created_by",
-			"modified_at",
-			"modified_by",
 			"first_name",
 			"last_name",
 			"email",
@@ -61,10 +48,8 @@ const (
 		FROM "authgo"."user"
 		WHERE "email" = $1;
 	`
-	sqlSaveUser = `
+	sqlCreateUser = `
 		INSERT INTO "authgo"."user" (
-			"created_by",
-			"modified_by",
 			"first_name",
 			"last_name",
 			"email",
@@ -72,8 +57,6 @@ const (
 			"enabled",
 			"administrator"
 		) VALUES (
-			:created_by,
-			:modified_by,
 			:first_name,
 			:last_name,
 			:email,
@@ -86,8 +69,6 @@ const (
 		UPDATE "authgo"."user" SET
 			"version" = :new_version,
 			"deleted" = :deleted,
-			"modified_at" = :modified_at,
-			"modified_by" = :modified_by,
 			"first_name" = :first_name,
 			"last_name" = :last_name,
 			"email" = :email,
@@ -99,78 +80,72 @@ const (
 	`
 )
 
-var (
-	TimeFunc = time.Now
-)
-
+// User TODO
 type User struct {
-	ID            int       `db:"id" json:"id,omitempty"`
-	Version       int       `db:"version" json:"version,omitempty"`
-	Deleted       bool      `db:"deleted" json:"deleted,omitempty"`
-	CreatedAt     time.Time `db:"created_at" json:"createdAt,omitempty"`
-	CreatedBy     string    `db:"created_by" json:"createdBy,omitempty"`
-	ModifiedAt    time.Time `db:"modified_at" json:"modifiedAt,omitempty"`
-	ModifiedBy    string    `db:"modified_by" json:"modifiedBy,omitempty"`
-	FirstName     string    `db:"first_name" json:"firstName,omitempty"`
-	LastName      string    `db:"last_name" json:"lastName,omitempty"`
-	Email         string    `db:"email" json:"email,omitempty"`
-	Password      string    `db:"password" json:"password,omitempty"`
-	Enabled       bool      `db:"enabled" json:"enabled,omitempty"`
-	Administrator bool      `db:"administrator" json:"administrator,omitempty"`
+	ID            int    `db:"id" json:"id,omitempty"`
+	Version       int    `db:"version" json:"version,omitempty"`
+	Deleted       bool   `db:"deleted" json:"deleted,omitempty"`
+	FirstName     string `db:"first_name" json:"firstName,omitempty"`
+	LastName      string `db:"last_name" json:"lastName,omitempty"`
+	Email         string `db:"email" json:"email,omitempty"`
+	Password      string `db:"password" json:"password,omitempty"`
+	Enabled       bool   `db:"enabled" json:"enabled,omitempty"`
+	Administrator bool   `db:"administrator" json:"administrator,omitempty"`
 }
 
-func (u *User) GetID() int {
-	return u.ID
+type Group struct {
+	Name string `db:"name" json:"name,omitempty"`
 }
 
-func (u *User) GetEmail() string {
-	return u.Email
+type Role struct {
+	Name string `db:"name" json:"name,omitempty"`
 }
 
-func (u *User) GetPassword() string {
-	return u.Password
+type GroupRole struct {
+	GroupName string `db:"group_name" json:"groupName,omitempty"`
+	RoleName  string `db:"role_name" json:"roleName,omitempty"`
 }
 
-func (u *User) IsAdministrator() bool {
-	return u.Administrator
-}
-
-func (u *User) IsInactive() bool {
-	return !u.Enabled || u.Deleted
-}
-
+// UsersFinder TODO
 type UsersFinder interface {
 	FindUsers() ([]User, error)
 }
 
+// UserFinder TODO
 type UserFinder interface {
 	FindUser(id string) (*User, error)
 }
 
+// UserByEmailFinder TODO
 type UserByEmailFinder interface {
 	FindUserByEmail(email string) (*User, error)
 }
 
-type UserSaver interface {
-	SaveUser(user *User) error
+// UserCreator TODO
+type UserCreator interface {
+	CreateUser(user *User) error
 }
 
+// UserUpdater TODO
 type UserUpdater interface {
 	UpdateUser(user *User) error
 }
 
+// UserDeleter TODO
 type UserDeleter interface{}
 
+// Repository TODO
 type Repository struct {
 	DB *sqlx.DB
 	UsersFinder
 	UserFinder
 	UserByEmailFinder
-	UserSaver
+	UserCreator
 	UserUpdater
 	UserDeleter
 }
 
+// NewRepository TODO
 func NewRepository() (*Repository, error) {
 	db, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=postgres sslmode=disable")
 
@@ -181,10 +156,12 @@ func NewRepository() (*Repository, error) {
 	return &Repository{DB: db}, nil
 }
 
+// Close TODO
 func (r *Repository) Close() error {
 	return r.DB.Close()
 }
 
+// FindUsers TODO
 func (r *Repository) FindUsers() ([]User, error) {
 	users := []User{}
 
@@ -197,6 +174,7 @@ func (r *Repository) FindUsers() ([]User, error) {
 	return users, nil
 }
 
+// FindUser TODO
 func (r *Repository) FindUser(id string) (*User, error) {
 	user := &User{}
 
@@ -213,6 +191,7 @@ func (r *Repository) FindUser(id string) (*User, error) {
 	return user, nil
 }
 
+// FindUserByEmail TODO
 func (r *Repository) FindUserByEmail(email string) (*User, error) {
 	user := &User{}
 
@@ -229,8 +208,9 @@ func (r *Repository) FindUserByEmail(email string) (*User, error) {
 	return user, nil
 }
 
-func (r *Repository) SaveUser(user *User) error {
-	stmt, err := r.DB.PrepareNamed(sqlSaveUser)
+// CreateUser TODO
+func (r *Repository) CreateUser(user *User) error {
+	stmt, err := r.DB.PrepareNamed(sqlCreateUser)
 
 	if err != nil {
 		return errors.Wrap(err, "authgo/repository: error when preparing statement")
@@ -251,6 +231,7 @@ func (r *Repository) SaveUser(user *User) error {
 	return nil
 }
 
+// UpdateUser TODO
 func (r *Repository) UpdateUser(user *User) error {
 	stmt, err := r.DB.PrepareNamed(sqlUpdateUser)
 
@@ -259,8 +240,6 @@ func (r *Repository) UpdateUser(user *User) error {
 	}
 
 	defer stmt.Close()
-
-	user.ModifiedAt = TimeFunc()
 
 	result, err := stmt.Exec(
 		struct {

@@ -15,16 +15,12 @@ import (
 )
 
 var (
-	repository Repository
+	repository *Repository
 	now        = time.Now()
 	testUser1  = &User{
 		ID:            1,
 		Version:       0,
 		Deleted:       false,
-		CreatedAt:     now,
-		CreatedBy:     "it",
-		ModifiedAt:    now,
-		ModifiedBy:    "it",
 		FirstName:     "Bar",
 		LastName:      "Foo",
 		Email:         "bar@foo.land",
@@ -36,10 +32,6 @@ var (
 		ID:            2,
 		Version:       0,
 		Deleted:       false,
-		CreatedAt:     now,
-		CreatedBy:     "it",
-		ModifiedAt:    now,
-		ModifiedBy:    "it",
 		FirstName:     "Foo",
 		LastName:      "Bar",
 		Email:         "foo@bar.land",
@@ -49,7 +41,7 @@ var (
 	}
 )
 
-func createRepository() Repository {
+func createRepository() *Repository {
 	r, err := NewRepository()
 
 	if err != nil {
@@ -104,8 +96,8 @@ func TestFindUserByEmail(t *testing.T) {
 	}
 }
 
-func TestSaveUser(t *testing.T) {
-	err := repository.SaveUser(testUser1)
+func TestCreateUser(t *testing.T) {
+	err := repository.CreateUser(testUser1)
 
 	if err != nil {
 		t.Fatalf("got %v, want nil", err)

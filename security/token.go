@@ -33,30 +33,30 @@ func createToken(s Subject) (*tokenHolder, error) {
 			IssuedAt:  now.Unix(),
 			Issuer:    jwtIssuer,
 			NotBefore: now.Unix(),
-			Subject:   s.GetEmail(),
+			Subject:   s.Email(),
 		},
-		s.GetID(),
-		s.IsAdministrator(),
+		s.ID(),
+		s.Administrator(),
 	}
-	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	secretKey, err := resolveSecurityKey(t)
+	securityKey, err := resolveSecurityKey(token)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: error when resolving security key")
 	}
 
-	signedToken, err := t.SignedString(secretKey)
+	signedToken, err := token.SignedString(securityKey)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: error when signing the token")
 	}
 
-	return &tokenHolder{t, signedToken, claims, expires}, nil
+	return &tokenHolder{token, signedToken, claims, expires}, nil
 }
 
-func resolveSecurityKey(t *jwt.Token) (interface{}, error) {
-	if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+func resolveSecurityKey(token *jwt.Token) (interface{}, error) {
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 		return nil, errInvalidSigningMethod
 	}
 
