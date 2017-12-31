@@ -30,7 +30,7 @@ func (s *subject) ID() int {
 	return s.User.ID
 }
 
-func (s *subject) Email() string {
+func (s *subject) Username() string {
 	return s.User.Email
 }
 

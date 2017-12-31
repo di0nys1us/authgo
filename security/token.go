@@ -33,7 +33,7 @@ func createToken(s Subject) (*tokenHolder, error) {
 			IssuedAt:  now.Unix(),
 			Issuer:    jwtIssuer,
 			NotBefore: now.Unix(),
-			Subject:   s.Email(),
+			Subject:   s.Username(),
 		},
 		s.ID(),
 		s.Administrator(),
