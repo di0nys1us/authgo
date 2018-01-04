@@ -23,13 +23,19 @@ type tokenHolder struct {
 }
 
 func createToken(s Subject) (*tokenHolder, error) {
+	id, err := uuid.NewV4()
+
+	if err != nil {
+		return nil, errors.Wrap(err, "authgo/security: error when creating uuid based id")
+	}
+
 	now := TimeFunc()
 	expires := now.AddDate(0, 0, 1)
 	claims := &jwtClaims{
 		&jwt.StandardClaims{
 			Audience:  jwtAudience,
 			ExpiresAt: expires.Unix(),
-			Id:        uuid.NewV4().String(),
+			Id:        id.String(),
 			IssuedAt:  now.Unix(),
 			Issuer:    jwtIssuer,
 			NotBefore: now.Unix(),
