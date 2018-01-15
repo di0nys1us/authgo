@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/di0nys1us/authgo/domain"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/di0nys1us/httpgo"
 	"github.com/pkg/errors"
@@ -17,6 +19,8 @@ const (
 	jwtCookieName          = "authgo_token"
 	claimsKey              = jwtClaimsKey("jwtClaimsKey")
 	environmentSecurityKey = "AUTHGO_SECURITY_KEY"
+	keyEmail               = "email"
+	keyPassword            = "password"
 )
 
 var (
@@ -25,24 +29,10 @@ var (
 	errMissingSecurityKey   = errors.New("authgo/security: missing environment variable AUTHGO_SECURITY_KEY")
 )
 
-type Subject interface {
-	ID() int
-	Username() string
-	Password() string
-	Administrator() bool
-	Enabled() bool
-}
-
-type user struct {
-	ID            int    `json:"id"`
-	Username      string `json:"username"`
-	Administrator bool   `json:"administrator"`
-}
-
 type jwtClaimsKey string
 
 type authentication struct {
-	subject     Subject
+	user        *domain.User
 	tokenHolder *tokenHolder
 }
 
@@ -50,14 +40,14 @@ type authorization struct {
 	claims *jwtClaims
 }
 
-type findSubjectFunc func(email string) (Subject, error)
+type findUserFunc func(email string) (*domain.User, error)
 
 type defaultSecurity struct {
-	findSubjectFunc findSubjectFunc
+	findUserFunc findUserFunc
 }
 
-func NewSecurity(findSubjectFunc findSubjectFunc) *defaultSecurity {
-	return &defaultSecurity{findSubjectFunc}
+func NewSecurity(findUserFunc findUserFunc) *defaultSecurity {
+	return &defaultSecurity{findUserFunc}
 }
 
 func newContextWithClaims(c context.Context, claims *jwtClaims) context.Context {
@@ -84,9 +74,7 @@ func (s *defaultSecurity) Authenticate(w http.ResponseWriter, r *http.Request) e
 		Secure:   false,
 	})
 
-	user := &user{a.subject.ID(), a.subject.Username(), a.subject.Administrator()}
-
-	return httpgo.WriteJSON(w, http.StatusOK, user)
+	return httpgo.WriteJSON(w, http.StatusOK, a.user)
 }
 
 func (s *defaultSecurity) authenticateRequest(r *http.Request) (*authentication, error) {
@@ -96,7 +84,7 @@ func (s *defaultSecurity) authenticateRequest(r *http.Request) (*authentication,
 		return nil, errors.Wrap(err, "authgo/security: error when reading credentials")
 	}
 
-	subject, err := s.resolveSubject(r.Form.Get("email"), r.Form.Get("password"))
+	subject, err := s.resolveUser(r.Form.Get(keyEmail), r.Form.Get(keyPassword))
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: error when resolving subject")
@@ -111,32 +99,32 @@ func (s *defaultSecurity) authenticateRequest(r *http.Request) (*authentication,
 	return &authentication{subject, t}, nil
 }
 
-func (s *defaultSecurity) resolveSubject(email, password string) (Subject, error) {
-	if s.findSubjectFunc == nil {
-		return nil, errors.New("authgo/security: findSubjectFunc is not set")
+func (s *defaultSecurity) resolveUser(email, password string) (*domain.User, error) {
+	if s.findUserFunc == nil {
+		return nil, errors.New("authgo/security: findUserFunc is not set")
 	}
 
-	subject, err := s.findSubjectFunc(email)
+	user, err := s.findUserFunc(email)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo/security: error when finding subject")
+		return nil, errors.Wrap(err, "authgo/security: error when finding user")
 	}
 
-	if subject == nil {
-		return nil, errors.New("authgo/security: subject is nil")
+	if user == nil {
+		return nil, errors.New("authgo/security: user is nil")
 	}
 
-	if !subject.Enabled() {
-		return nil, errors.New("authgo/security: subject is not enabled")
+	if !user.Enabled {
+		return nil, errors.New("authgo/security: user is not enabled")
 	}
 
-	err = validateHashedPassword(subject.Password(), password)
+	err = validateHashedPassword(user.Password, password)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo/security: invalid password")
 	}
 
-	return subject, nil
+	return user, nil
 }
 
 func Authorize(next http.Handler) http.Handler {

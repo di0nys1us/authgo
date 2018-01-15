@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 
+	"github.com/di0nys1us/authgo/domain"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 )
@@ -12,12 +13,10 @@ const (
 		SELECT
 			"id",
 			"version",
-			"deleted",
 			"first_name",
 			"last_name",
 			"email",
-			"enabled",
-			"administrator"
+			"enabled"
 		FROM "authgo"."user"
 		ORDER BY "id";
 	`
@@ -25,12 +24,10 @@ const (
 		SELECT
 			"id",
 			"version",
-			"deleted",
 			"first_name",
 			"last_name",
 			"email",
-			"enabled",
-			"administrator"
+			"enabled"
 		FROM "authgo"."user"
 		WHERE "id" = $1;
 	`
@@ -38,13 +35,11 @@ const (
 		SELECT
 			"id",
 			"version",
-			"deleted",
 			"first_name",
 			"last_name",
 			"email",
 			"password",
-			"enabled",
-			"administrator"
+			"enabled"
 		FROM "authgo"."user"
 		WHERE "email" = $1;
 	`
@@ -54,81 +49,51 @@ const (
 			"last_name",
 			"email",
 			"password",
-			"enabled",
-			"administrator"
+			"enabled"
 		) VALUES (
 			:first_name,
 			:last_name,
 			:email,
 			:password,
-			:enabled,
-			:administrator
+			:enabled
 		) RETURNING "id";
 	`
 	sqlUpdateUser = `
 		UPDATE "authgo"."user" SET
 			"version" = :new_version,
-			"deleted" = :deleted,
 			"first_name" = :first_name,
 			"last_name" = :last_name,
 			"email" = :email,
 			"password" = :password,
-			"enabled" = :enabled,
-			"administrator" = :administrator
+			"enabled" = :enabled
 		WHERE "id" = :id
 			AND "version" = :old_version;
 	`
 )
 
-// User TODO
-type User struct {
-	ID            int    `db:"id" json:"id,omitempty"`
-	Version       int    `db:"version" json:"version,omitempty"`
-	Deleted       bool   `db:"deleted" json:"deleted,omitempty"`
-	FirstName     string `db:"first_name" json:"firstName,omitempty"`
-	LastName      string `db:"last_name" json:"lastName,omitempty"`
-	Email         string `db:"email" json:"email,omitempty"`
-	Password      string `db:"password" json:"password,omitempty"`
-	Enabled       bool   `db:"enabled" json:"enabled,omitempty"`
-	Administrator bool   `db:"administrator" json:"administrator,omitempty"`
-}
-
-type Group struct {
-	Name string `db:"name" json:"name,omitempty"`
-}
-
-type Role struct {
-	Name string `db:"name" json:"name,omitempty"`
-}
-
-type GroupRole struct {
-	GroupName string `db:"group_name" json:"groupName,omitempty"`
-	RoleName  string `db:"role_name" json:"roleName,omitempty"`
-}
-
 // UsersFinder TODO
 type UsersFinder interface {
-	FindUsers() ([]User, error)
+	FindUsers() ([]domain.User, error)
 }
 
 // UserFinder TODO
 type UserFinder interface {
-	FindUser(id string) (*User, error)
+	FindUser(id string) (*domain.User, error)
 }
 
 // UserByEmailFinder TODO
 type UserByEmailFinder interface {
-	FindUserByEmail(email string) (*User, error)
+	FindUserByEmail(email string) (*domain.User, error)
 }
 
 // UserCreator TODO
 type UserCreator interface {
-	CreateUser(user *User) error
+	CreateUser(user *domain.User) error
 }
 
 // UserUpdater TODO
 type UserUpdater interface {
-	UpdateUser(user *User) error
+	UpdateUser(user *domain.User) error
 }
 
 // UserDeleter TODO
@@ -162,8 +127,8 @@ func (r *Repository) Close() error {
 }
 
 // FindUsers TODO
-func (r *Repository) FindUsers() ([]User, error) {
-	users := []User{}
+func (r *Repository) FindUsers() ([]domain.User, error) {
+	users := []domain.User{}
 
 	err := r.DB.Select(&users, sqlFindUsers)
 
@@ -175,8 +140,8 @@ func (r *Repository) FindUsers() ([]User, error) {
 }
 
 // FindUser TODO
-func (r *Repository) FindUser(id string) (*User, error) {
-	user := &User{}
+func (r *Repository) FindUser(id string) (*domain.User, error) {
+	user := &domain.User{}
 
 	err := r.DB.Get(user, sqlFindUser, id)
 
@@ -192,8 +157,8 @@ func (r *Repository) FindUser(id string) (*User, error) {
 }
 
 // FindUserByEmail TODO
-func (r *Repository) FindUserByEmail(email string) (*User, error) {
-	user := &User{}
+func (r *Repository) FindUserByEmail(email string) (*domain.User, error) {
+	user := &domain.User{}
 
 	err := r.DB.Get(user, sqlFindUserByEmail, email)
 
@@ -209,7 +174,7 @@ func (r *Repository) FindUserByEmail(email string) (*User, error) {
 }
 
 // CreateUser TODO
-func (r *Repository) CreateUser(user *User) error {
+func (r *Repository) CreateUser(user *domain.User) error {
 	stmt, err := r.DB.PrepareNamed(sqlCreateUser)
 
 	if err != nil {
@@ -232,7 +197,7 @@ func (r *Repository) CreateUser(user *User) error {
 }
 
 // UpdateUser TODO
-func (r *Repository) UpdateUser(user *User) error {
+func (r *Repository) UpdateUser(user *domain.User) error {
 	stmt, err := r.DB.PrepareNamed(sqlUpdateUser)
 
 	if err != nil {
@@ -243,7 +208,7 @@ func (r *Repository) UpdateUser(user *User) error {
 
 	result, err := stmt.Exec(
 		struct {
-			*User
+			*domain.User
 			NewVersion int `db:"new_version"`
 			OldVersion int `db:"old_version"`
 		}{user, user.Version + 1, user.Version},

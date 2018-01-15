@@ -4,6 +4,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/di0nys1us/authgo/domain"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
@@ -11,8 +13,7 @@ import (
 
 type jwtClaims struct {
 	*jwt.StandardClaims
-	UserID        int  `json:"uid"`
-	Administrator bool `json:"adm"`
+	UserID int `json:"uid"`
 }
 
 type tokenHolder struct {
@@ -22,7 +23,7 @@ type tokenHolder struct {
 	expires     time.Time
 }
 
-func createToken(s Subject) (*tokenHolder, error) {
+func createToken(user *domain.User) (*tokenHolder, error) {
 	id, err := uuid.NewV4()
 
 	if err != nil {
@@ -39,10 +40,9 @@ func createToken(s Subject) (*tokenHolder, error) {
 			IssuedAt:  now.Unix(),
 			Issuer:    jwtIssuer,
 			NotBefore: now.Unix(),
-			Subject:   s.Username(),
+			Subject:   user.Email,
 		},
-		s.ID(),
-		s.Administrator(),
+		user.ID,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 

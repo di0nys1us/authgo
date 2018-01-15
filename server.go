@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/di0nys1us/httpgo"
-	"github.com/pkg/errors"
+	"github.com/graphql-go/graphql"
 
-	"github.com/di0nys1us/authgo/handlers"
+	"github.com/di0nys1us/httpgo"
+
 	"github.com/di0nys1us/authgo/repository"
 	"github.com/di0nys1us/authgo/security"
 	"github.com/go-chi/chi"
+	"github.com/graphql-go/handler"
 	"github.com/joho/godotenv"
 
 	_ "github.com/lib/pq"
@@ -21,30 +22,6 @@ import (
 const (
 	defaultPort = "3000"
 )
-
-type subject struct {
-	*repository.User
-}
-
-func (s *subject) ID() int {
-	return s.User.ID
-}
-
-func (s *subject) Username() string {
-	return s.User.Email
-}
-
-func (s *subject) Password() string {
-	return s.User.Password
-}
-
-func (s *subject) Administrator() bool {
-	return s.User.Administrator
-}
-
-func (s *subject) Enabled() bool {
-	return s.User.Enabled && !s.User.Deleted
-}
 
 func main() {
 	err := godotenv.Load()
@@ -71,31 +48,37 @@ func createRouter() *chi.Mux {
 
 	//defer r.Close()
 
-	h := handlers.NewHandler(r)
-	s := security.NewSecurity(func(email string) (security.Subject, error) {
-		user, err := r.FindUserByEmail(email)
-
-		if err != nil {
-			return nil, errors.Wrap(err, "authgo: error when finding user")
-		}
-
-		if user == nil {
-			return nil, nil
-		}
-
-		return &subject{user}, nil
-	})
+	s := security.NewSecurity(r.FindUserByEmail)
 
 	router := chi.NewRouter()
+
+	fields := graphql.Fields{
+		"hello": &graphql.Field{
+			Type: graphql.String,
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				return "world", nil
+			},
+		},
+	}
+	rootQuery := graphql.ObjectConfig{Name: "RootQuery", Fields: fields}
+	schemaConfig := graphql.SchemaConfig{Query: graphql.NewObject(rootQuery)}
+	schema, err := graphql.NewSchema(schemaConfig)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	handler := handler.New(&handler.Config{
+		Schema:   &schema,
+		Pretty:   true,
+		GraphiQL: true,
+	})
 
 	// Protected routes
 	router.Group(func(g chi.Router) {
 		g.Use(security.Authorize)
 
-		g.Method(http.MethodGet, "/users", httpgo.ErrorHandlerFunc(h.GetUsers))
-		g.Method(http.MethodGet, "/users/{id:[0-9]+}", httpgo.ErrorHandlerFunc(h.GetUser))
-		g.Method(http.MethodPost, "/users", httpgo.ErrorHandlerFunc(h.PostUser))
-		g.Method(http.MethodPut, "/users/{id:[0-9]+}", httpgo.ErrorHandlerFunc(h.PutUser))
+		g.Handle("/graphql", handler)
 	})
 
 	// Public routes
