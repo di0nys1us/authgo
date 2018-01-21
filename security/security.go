@@ -2,6 +2,7 @@ package security
 
 import (
 	"context"
+	"html/template"
 	"net/http"
 	"time"
 
@@ -166,6 +167,28 @@ func authorizeRequest(r *http.Request) (*authorization, error) {
 	}
 
 	return &authorization{claims}, nil
+}
+
+func (s *defaultSecurity) GetAuthenticationForm(w http.ResponseWriter, r *http.Request) error {
+	tmpl, err := template.ParseFiles("template/authenticate.html")
+
+	if err != nil {
+		return err
+	}
+
+	return tmpl.Execute(w, nil)
+}
+
+func (s *defaultSecurity) PostAuthenticationForm(w http.ResponseWriter, r *http.Request) error {
+	err := s.Authenticate(w, r)
+
+	if err != nil {
+		return err
+	}
+
+	http.Redirect(w, r, "", http.StatusTemporaryRedirect)
+
+	return nil
 }
 
 func validateHashedPassword(hashedPassword, password string) error {

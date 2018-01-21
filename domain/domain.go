@@ -34,18 +34,6 @@ type Authority struct {
 	Name string `db:"name" json:"name,omitempty"`
 }
 
-// UserRole TODO
-type UserRole struct {
-	UserID int
-	RoleID int
-}
-
-// RoleAuthority TODO
-type RoleAuthority struct {
-	RoleID      int
-	AuthorityID int
-}
-
 // EventType TODO
 type EventType struct {
 	ID   int    `db:"id" json:"id,omitempty"`
