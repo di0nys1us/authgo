@@ -169,7 +169,7 @@ func authorizeRequest(r *http.Request) (*authorization, error) {
 	return &authorization{claims}, nil
 }
 
-func (s *defaultSecurity) GetAuthenticationForm(w http.ResponseWriter, r *http.Request) error {
+func (s *defaultSecurity) GetLogin(w http.ResponseWriter, r *http.Request) error {
 	tmpl, err := template.ParseFiles("template/authenticate.html")
 
 	if err != nil {
@@ -179,14 +179,22 @@ func (s *defaultSecurity) GetAuthenticationForm(w http.ResponseWriter, r *http.R
 	return tmpl.Execute(w, nil)
 }
 
-func (s *defaultSecurity) PostAuthenticationForm(w http.ResponseWriter, r *http.Request) error {
-	err := s.Authenticate(w, r)
+func (s *defaultSecurity) PostLogin(w http.ResponseWriter, r *http.Request) error {
+	a, err := s.authenticateRequest(r)
 
 	if err != nil {
 		return err
 	}
 
-	http.Redirect(w, r, "", http.StatusTemporaryRedirect)
+	http.SetCookie(w, &http.Cookie{
+		Name:     jwtCookieName,
+		Value:    a.tokenHolder.signedToken,
+		Expires:  a.tokenHolder.expires,
+		HttpOnly: true,
+		Secure:   false,
+	})
+
+	http.Redirect(w, r, "/graphql", http.StatusSeeOther)
 
 	return nil
 }

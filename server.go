@@ -75,6 +75,9 @@ func createRouter() *chi.Mux {
 			},
 			"roles": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(roleType))),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return []string{"test"}, nil
+				},
 			},
 		},
 	})
@@ -190,7 +193,8 @@ func createRouter() *chi.Mux {
 
 	// Public routes
 	router.Group(func(g chi.Router) {
-		g.Method(http.MethodGet, "/authenticate", httpgo.ErrorHandlerFunc(s.GetAuthenticationForm))
+		g.Method(http.MethodGet, "/login", httpgo.ErrorHandlerFunc(s.GetLogin))
+		g.Method(http.MethodPost, "/login", httpgo.ErrorHandlerFunc(s.PostLogin))
 		g.Method(http.MethodPost, "/authenticate", httpgo.ErrorHandlerFunc(s.Authenticate))
 		g.Method(http.MethodGet, "/invalidate", httpgo.ErrorHandlerFunc(security.Invalidate))
 	})
