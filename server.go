@@ -1,4 +1,4 @@
-package main
+package authgo
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	"github.com/di0nys1us/httpgo"
 
 	"github.com/di0nys1us/authgo/repository"
-	"github.com/di0nys1us/authgo/security"
 	"github.com/go-chi/chi"
 	"github.com/graphql-go/handler"
 	"github.com/joho/godotenv"
@@ -40,15 +39,14 @@ func main() {
 }
 
 func createRouter() *chi.Mux {
-	r, err := repository.NewRepository()
+	db, err := repository.CreateDatabase()
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//defer r.Close()
-
-	s := security.NewSecurity(r.FindUserByEmail)
+	r := repository.NewRepository(db)
+	s := NewSecurity(r.FindUserByEmail)
 
 	router := chi.NewRouter()
 
@@ -73,17 +71,20 @@ func createRouter() *chi.Mux {
 			"name": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.String),
 			},
-			"roles": &graphql.Field{
-				Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(roleType))),
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return []string{"test"}, nil
-				},
-			},
 		},
 	})
 
 	roleType.AddFieldConfig("authorities", &graphql.Field{
 		Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(authorityType))),
+		Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+			return nil, nil
+		},
+	})
+	authorityType.AddFieldConfig("roles", &graphql.Field{
+		Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(roleType))),
+		Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+			return nil, nil
+		},
 	})
 
 	userEventType := graphql.NewObject(graphql.ObjectConfig{
@@ -132,47 +133,50 @@ func createRouter() *chi.Mux {
 				Type: graphql.NewNonNull(graphql.Boolean),
 			},
 			"roles": &graphql.Field{
-				Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(roleType))),
+				Type:    graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(roleType))),
+				Resolve: nil,
 			},
-			"userEvents": &graphql.Field{
+			"events": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(userEventType))),
 			},
 		},
 	})
 
-	fields := graphql.Fields{
-		"users": &graphql.Field{
-			Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(userType))),
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				return r.FindUsers()
-			},
-		},
-		"user": &graphql.Field{
-			Type: userType,
-			Args: graphql.FieldConfigArgument{
-				"id": &graphql.ArgumentConfig{
-					Type: graphql.ID,
-				},
-				"email": &graphql.ArgumentConfig{
-					Type: graphql.String,
+	queryType := graphql.NewObject(graphql.ObjectConfig{
+		Name: "Query",
+		Fields: graphql.Fields{
+			"users": &graphql.Field{
+				Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(userType))),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return r.FindUsers()
 				},
 			},
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				if id, ok := p.Args["id"].(string); ok {
-					return r.FindUser(id)
-				}
+			"user": &graphql.Field{
+				Type: userType,
+				Args: graphql.FieldConfigArgument{
+					"id": &graphql.ArgumentConfig{
+						Type: graphql.ID,
+					},
+					"email": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if id, ok := p.Args["id"].(string); ok {
+						return r.FindUser(id)
+					}
 
-				if email, ok := p.Args["email"].(string); ok {
-					return r.FindUserByEmail(email)
-				}
+					if email, ok := p.Args["email"].(string); ok {
+						return r.FindUserByEmail(email)
+					}
 
-				return nil, nil
+					return nil, nil
+				},
 			},
 		},
-	}
-	rootQuery := graphql.ObjectConfig{Name: "Query", Fields: fields}
-	schemaConfig := graphql.SchemaConfig{Query: graphql.NewObject(rootQuery)}
-	schema, err := graphql.NewSchema(schemaConfig)
+	})
+
+	schema, err := graphql.NewSchema(graphql.SchemaConfig{Query: queryType})
 
 	if err != nil {
 		log.Fatal(err)
@@ -196,7 +200,7 @@ func createRouter() *chi.Mux {
 		g.Method(http.MethodGet, "/login", httpgo.ErrorHandlerFunc(s.GetLogin))
 		g.Method(http.MethodPost, "/login", httpgo.ErrorHandlerFunc(s.PostLogin))
 		g.Method(http.MethodPost, "/authenticate", httpgo.ErrorHandlerFunc(s.Authenticate))
-		g.Method(http.MethodGet, "/invalidate", httpgo.ErrorHandlerFunc(security.Invalidate))
+		g.Method(http.MethodGet, "/invalidate", httpgo.ErrorHandlerFunc(Invalidate))
 	})
 
 	return router

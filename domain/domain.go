@@ -11,23 +11,6 @@ const (
 	EventTypeUpdateUser = "UPDATE_USER"
 )
 
-// User TODO
-type User struct {
-	ID        int    `db:"id" json:"id,omitempty"`
-	Version   int    `db:"version" json:"version,omitempty"`
-	FirstName string `db:"first_name" json:"firstName,omitempty"`
-	LastName  string `db:"last_name" json:"lastName,omitempty"`
-	Email     string `db:"email" json:"email,omitempty"`
-	Password  string `db:"password" json:"password,omitempty"`
-	Enabled   bool   `db:"enabled" json:"enabled,omitempty"`
-}
-
-// Role TODO
-type Role struct {
-	ID   int    `db:"id" json:"id,omitempty"`
-	Name string `db:"name" json:"name,omitempty"`
-}
-
 // Authority TODO
 type Authority struct {
 	ID   int    `db:"id" json:"id,omitempty"`

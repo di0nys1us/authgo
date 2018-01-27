@@ -110,20 +110,13 @@ type Repository struct {
 	UserDeleter
 }
 
-// NewRepository TODO
-func NewRepository() (*Repository, error) {
-	db, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=postgres sslmode=disable")
-
-	if err != nil {
-		return nil, errors.Wrap(err, "authgo/repository: connection error")
-	}
-
-	return &Repository{DB: db}, nil
+func CreateDatabase() (*sqlx.DB, error) {
+	return sqlx.Connect("postgres", "user=postgres password=postgres dbname=postgres sslmode=disable")
 }
 
-// Close TODO
-func (r *Repository) Close() error {
-	return r.DB.Close()
+// NewRepository TODO
+func NewRepository(db *sqlx.DB) *Repository {
+	return &Repository{DB: db}
 }
 
 // FindUsers TODO
