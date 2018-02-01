@@ -6,7 +6,6 @@ import (
 
 type userEvent struct {
 	ID          int       `db:"id" json:"id,omitempty"`
-	UserID      int       `db:"user_id" json:"user_id,omitempty"`
 	CreatedBy   int       `db:"created_by" json:"created_by,omitempty"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at,omitempty"`
 	Type        int       `db:"type" json:"type,omitempty"`
