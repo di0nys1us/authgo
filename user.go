@@ -14,13 +14,62 @@ type user struct {
 	Email     string `db:"email" json:"email,omitempty"`
 	Password  string `db:"password" json:"password,omitempty"`
 	Enabled   bool   `db:"enabled" json:"enabled,omitempty"`
+	Deleted   bool   `db:"deleted" json:"deleted,omitempty"`
 }
 
 func (u *user) save(tx *tx) error {
+	stmt, err := tx.PrepareNamed(sqlSaveUser)
+
+	if err != nil {
+		return errors.Wrap(err, "authgo/repository: error when preparing statement")
+	}
+
+	defer stmt.Close()
+
+	var id int
+
+	err = stmt.Get(&id, u)
+
+	if err != nil {
+		return errors.Wrap(err, "authgo: error when creating user")
+	}
+
+	u.ID = id
+
 	return nil
 }
 
 func (u *user) update(tx *tx) error {
+	stmt, err := tx.PrepareNamed(sqlUpdateUser)
+
+	if err != nil {
+		return errors.Wrap(err, "authgo: error when preparing statement")
+	}
+
+	defer stmt.Close()
+
+	result, err := stmt.Exec(
+		struct {
+			*user
+			NewVersion int `db:"new_version"`
+			OldVersion int `db:"old_version"`
+		}{u, u.Version + 1, u.Version},
+	)
+
+	if err != nil {
+		return errors.Wrap(err, "authgo: error when updating user")
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return errors.Wrap(err, "authgo: error when checking for rows affected")
+	}
+
+	if rowsAffected != 1 {
+		return errors.New("authgo: no update performed")
+	}
+
 	return nil
 }
 
@@ -28,10 +77,10 @@ func (u *user) delete(tx *tx) error {
 	return nil
 }
 
-func findUserByID(tx *tx, id int) (*user, error) {
+func findUserByID(tx *tx, id string) (*user, error) {
 	u := &user{}
 
-	err := tx.Get(u, sqlFindUser, id)
+	err := tx.Get(u, sqlFindUserByID, id)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -47,7 +96,7 @@ func findUserByID(tx *tx, id int) (*user, error) {
 func findUserByEmail(tx *tx, email string) (*user, error) {
 	u := &user{}
 
-	err := tx.Get(u, sqlFindUser, email)
+	err := tx.Get(u, sqlFindUserByEmail, email)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -61,19 +110,83 @@ func findUserByEmail(tx *tx, email string) (*user, error) {
 }
 
 func findAllUsers(tx *tx) ([]*user, error) {
-	return nil, nil
+	users := []*user{}
+
+	err := tx.Select(&users, sqlFindAllUsers)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "authgo: error when finding users")
+	}
+
+	return users, nil
 }
 
 const (
-	sqlFindUser = `
+	sqlSaveUser = `
+		INSERT INTO "authgo"."user" (
+			"first_name",
+			"last_name",
+			"email",
+			"password",
+			"enabled",
+			"deleted"
+		) VALUES (
+			:first_name,
+			:last_name,
+			:email,
+			:password,
+			:enabled,
+			:deleted
+		) RETURNING "id";
+	`
+	sqlUpdateUser = `
+		UPDATE "authgo"."user" SET
+			"version" = :new_version,
+			"first_name" = :first_name,
+			"last_name" = :last_name,
+			"email" = :email,
+			"password" = :password,
+			"enabled" = :enabled,
+			"deleted" = :deleted
+		WHERE "id" = :id
+			AND "version" = :old_version;
+	`
+	sqlDeleteUser   = ``
+	sqlFindUserByID = `
 		SELECT
 			"id",
 			"version",
 			"first_name",
 			"last_name",
 			"email",
-			"enabled"
+			"enabled",
+			"deleted"
 		FROM "authgo"."user"
 		WHERE "id" = $1;
+	`
+	sqlFindUserByEmail = `
+		SELECT
+			"id",
+			"version",
+			"first_name",
+			"last_name",
+			"email",
+			"password",
+			"enabled",
+			"deleted"
+		FROM "authgo"."user"
+		WHERE "email" = $1;
+	`
+	sqlFindAllUsers = `
+		SELECT
+			"id",
+			"version",
+			"first_name",
+			"last_name",
+			"email",
+			"enabled",
+			"deleted"
+		FROM "authgo"."user"
+		ORDER BY "id";
 	`
 )

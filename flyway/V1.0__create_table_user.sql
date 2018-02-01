@@ -6,6 +6,7 @@ CREATE TABLE "authgo"."user" (
     "email" VARCHAR(255) NOT NULL,
     "password" TEXT NOT NULL,
     "enabled" BOOLEAN NOT NULL DEFAULT TRUE,
+    "deleted" BOOLEAN NOT NULL DEFAULT FALSE,
 
     PRIMARY KEY ("id"),
     UNIQUE ("email")

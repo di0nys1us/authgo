@@ -1,52 +1,25 @@
 package authgo
 
 import (
-	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/graphql-go/graphql"
 
 	"github.com/di0nys1us/httpgo"
 
-	"github.com/di0nys1us/authgo/repository"
 	"github.com/go-chi/chi"
 	"github.com/graphql-go/handler"
-	"github.com/joho/godotenv"
-
-	_ "github.com/lib/pq"
 )
 
-const (
-	defaultPort = "3000"
-)
-
-func main() {
-	err := godotenv.Load()
+func NewRouter() http.Handler {
+	db, err := connect()
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	addr := fmt.Sprintf(":%s", defaultPort)
-
-	if port, ok := os.LookupEnv("AUTHGO_PORT"); ok {
-		addr = fmt.Sprintf(":%s", port)
-	}
-
-	log.Fatal(http.ListenAndServe(addr, createRouter()))
-}
-
-func createRouter() *chi.Mux {
-	db, err := repository.CreateDatabase()
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	r := repository.NewRepository(db)
-	s := NewSecurity(r.FindUserByEmail)
+	sec := newSecurity(db)
 
 	router := chi.NewRouter()
 
@@ -148,7 +121,7 @@ func createRouter() *chi.Mux {
 			"users": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(userType))),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return r.FindUsers()
+					return nil, nil
 				},
 			},
 			"user": &graphql.Field{
@@ -163,11 +136,11 @@ func createRouter() *chi.Mux {
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					if id, ok := p.Args["id"].(string); ok {
-						return r.FindUser(id)
+						return findUserByID(nil, id)
 					}
 
 					if email, ok := p.Args["email"].(string); ok {
-						return r.FindUserByEmail(email)
+						return findUserByEmail(nil, email)
 					}
 
 					return nil, nil
@@ -190,17 +163,17 @@ func createRouter() *chi.Mux {
 
 	// Protected routes
 	router.Group(func(g chi.Router) {
-		g.Use(security.Authorize)
+		g.Use(authorize)
 
 		g.Handle("/graphql", handler)
 	})
 
 	// Public routes
 	router.Group(func(g chi.Router) {
-		g.Method(http.MethodGet, "/login", httpgo.ErrorHandlerFunc(s.GetLogin))
-		g.Method(http.MethodPost, "/login", httpgo.ErrorHandlerFunc(s.PostLogin))
-		g.Method(http.MethodPost, "/authenticate", httpgo.ErrorHandlerFunc(s.Authenticate))
-		g.Method(http.MethodGet, "/invalidate", httpgo.ErrorHandlerFunc(Invalidate))
+		g.Method(http.MethodGet, "/login", httpgo.ErrorHandlerFunc(sec.getLogin))
+		g.Method(http.MethodPost, "/login", httpgo.ErrorHandlerFunc(sec.postLogin))
+		g.Method(http.MethodPost, "/authenticate", httpgo.ErrorHandlerFunc(sec.authenticate))
+		g.Method(http.MethodGet, "/invalidate", httpgo.ErrorHandlerFunc(invalidate))
 	})
 
 	return router

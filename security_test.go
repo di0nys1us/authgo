@@ -19,19 +19,19 @@ func TestGetClaimsFromContext(t *testing.T) {
 
 	c := context.Background()
 
-	if claims, ok := GetClaimsFromContext(c); ok {
+	if claims, ok := getClaimsFromContext(c); ok {
 		t.Errorf("got %v, want nil", claims)
 	}
 
 	c = newContextWithClaims(c, testClaims)
 
-	if claims, ok := GetClaimsFromContext(c); !ok {
+	if claims, ok := getClaimsFromContext(c); !ok {
 		t.Errorf("got %v, want %v", claims, testClaims)
 	}
 }
 
 func TestAuthorize(t *testing.T) {
-	handler := Authorize(httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+	handler := authorize(httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}))
 
@@ -47,7 +47,7 @@ func TestInvalidate(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 
-	err := Invalidate(w, r)
+	err := invalidate(w, r)
 
 	assert.Nil(t, err)
 }

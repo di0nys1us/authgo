@@ -4,8 +4,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/di0nys1us/authgo/domain"
-
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
@@ -23,14 +21,14 @@ type tokenHolder struct {
 	expires     time.Time
 }
 
-func createToken(user *domain.User) (*tokenHolder, error) {
+func createToken(user *user) (*tokenHolder, error) {
 	id, err := uuid.NewV4()
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo/security: error when creating uuid based id")
+		return nil, errors.Wrap(err, "authgo: error when creating uuid based id")
 	}
 
-	now := TimeFunc()
+	now := timeFunc()
 	expires := now.AddDate(0, 0, 1)
 	claims := &jwtClaims{
 		&jwt.StandardClaims{
@@ -49,13 +47,13 @@ func createToken(user *domain.User) (*tokenHolder, error) {
 	securityKey, err := resolveSecurityKey(token)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo/security: error when resolving security key")
+		return nil, errors.Wrap(err, "authgo: error when resolving security key")
 	}
 
 	signedToken, err := token.SignedString(securityKey)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo/security: error when signing the token")
+		return nil, errors.Wrap(err, "authgo: error when signing the token")
 	}
 
 	return &tokenHolder{token, signedToken, claims, expires}, nil
