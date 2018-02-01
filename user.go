@@ -21,7 +21,7 @@ func (u *user) save(tx *tx) error {
 	stmt, err := tx.PrepareNamed(sqlSaveUser)
 
 	if err != nil {
-		return errors.Wrap(err, "authgo/repository: error when preparing statement")
+		return errors.Wrap(err, "authgo: error when preparing statement")
 	}
 
 	defer stmt.Close()
@@ -31,7 +31,7 @@ func (u *user) save(tx *tx) error {
 	err = stmt.Get(&id, u)
 
 	if err != nil {
-		return errors.Wrap(err, "authgo: error when creating user")
+		return errors.Wrap(err, "authgo: error when saving user")
 	}
 
 	u.ID = id

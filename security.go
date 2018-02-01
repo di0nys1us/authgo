@@ -56,8 +56,8 @@ func getClaimsFromContext(c context.Context) (*jwtClaims, bool) {
 	return claims, ok
 }
 
-func (s *security) authenticate(w http.ResponseWriter, r *http.Request) error {
-	a, err := s.authenticateRequest(r)
+func (sec *security) authenticate(w http.ResponseWriter, r *http.Request) error {
+	a, err := sec.authenticateRequest(r)
 
 	if err != nil {
 		return err
@@ -74,14 +74,14 @@ func (s *security) authenticate(w http.ResponseWriter, r *http.Request) error {
 	return httpgo.WriteJSON(w, http.StatusOK, a.user)
 }
 
-func (s *security) authenticateRequest(r *http.Request) (*authentication, error) {
+func (sec *security) authenticateRequest(r *http.Request) (*authentication, error) {
 	err := r.ParseForm()
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: error when reading credentials")
 	}
 
-	subject, err := s.resolveUser(r.Form.Get(keyEmail), r.Form.Get(keyPassword))
+	subject, err := sec.resolveUser(r.Form.Get(keyEmail), r.Form.Get(keyPassword))
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: error when resolving subject")
@@ -96,8 +96,8 @@ func (s *security) authenticateRequest(r *http.Request) (*authentication, error)
 	return &authentication{subject, t}, nil
 }
 
-func (s *security) resolveUser(email, password string) (*user, error) {
-	tx, err := s.db.begin()
+func (sec *security) resolveUser(email, password string) (*user, error) {
+	tx, err := sec.db.begin()
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: transaction error")
@@ -173,8 +173,8 @@ func authorizeRequest(r *http.Request) (*authorization, error) {
 	return &authorization{claims}, nil
 }
 
-func (s *security) getLogin(w http.ResponseWriter, r *http.Request) error {
-	tmpl, err := template.ParseFiles("../login.html")
+func (sec *security) getLogin(w http.ResponseWriter, r *http.Request) error {
+	tmpl, err := template.ParseFiles("../templates/login.html")
 
 	if err != nil {
 		return err
@@ -183,8 +183,8 @@ func (s *security) getLogin(w http.ResponseWriter, r *http.Request) error {
 	return tmpl.Execute(w, nil)
 }
 
-func (s *security) postLogin(w http.ResponseWriter, r *http.Request) error {
-	a, err := s.authenticateRequest(r)
+func (sec *security) postLogin(w http.ResponseWriter, r *http.Request) error {
+	a, err := sec.authenticateRequest(r)
 
 	if err != nil {
 		return err

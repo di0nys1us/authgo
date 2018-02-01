@@ -18,7 +18,7 @@ func (db *db) begin() (*tx, error) {
 	return &tx{wrapped}, nil
 }
 
-func connect() (*db, error) {
+func newDB() (*db, error) {
 	wrapped, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=postgres sslmode=disable")
 
 	if err != nil {

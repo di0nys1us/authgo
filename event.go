@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type userEvent struct {
+type event struct {
 	ID          int       `db:"id" json:"id,omitempty"`
 	CreatedBy   int       `db:"created_by" json:"created_by,omitempty"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at,omitempty"`
@@ -12,14 +12,14 @@ type userEvent struct {
 	Description string    `db:"description" json:"description,omitempty"`
 }
 
-func (evt *userEvent) save(tx *tx) error {
+func (evt *event) save(tx *tx) error {
 	return nil
 }
 
-func (evt *userEvent) update(tx *tx) error {
+func (evt *event) update(tx *tx) error {
 	return nil
 }
 
-func (evt *userEvent) delete(tx *tx) error {
+func (evt *event) delete(tx *tx) error {
 	return nil
 }

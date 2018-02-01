@@ -13,7 +13,7 @@ import (
 )
 
 func NewRouter() http.Handler {
-	db, err := connect()
+	db, err := newDB()
 
 	if err != nil {
 		log.Fatal(err)
