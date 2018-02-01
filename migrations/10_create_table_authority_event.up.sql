@@ -3,6 +3,6 @@ CREATE TABLE "authgo"."authority_event" (
     "event_id" BIGINT NOT NULL,
 
     PRIMARY KEY ("event_id"),
-    FOREIGN KEY ("authority_id") REFERENCES "authority" ("id"),
-    FOREIGN KEY ("event_id") REFERENCES "event" ("id")
+    FOREIGN KEY ("authority_id") REFERENCES "authgo"."authority" ("id"),
+    FOREIGN KEY ("event_id") REFERENCES "authgo"."event" ("id")
 );

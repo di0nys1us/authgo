@@ -6,6 +6,6 @@ CREATE TABLE "authgo"."event" (
     "description" TEXT NOT NULL,
 
     PRIMARY KEY ("id"),
-    FOREIGN KEY ("created_by") REFERENCES "user" ("id"),
-    FOREIGN KEY ("type") REFERENCES "event_type" ("name")
+    FOREIGN KEY ("created_by") REFERENCES "authgo"."user" ("id"),
+    FOREIGN KEY ("type") REFERENCES "authgo"."event_type" ("name")
 );
