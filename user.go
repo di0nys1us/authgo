@@ -17,7 +17,7 @@ type user struct {
 	Deleted   bool   `db:"deleted" json:"deleted,omitempty"`
 }
 
-func (u *user) save(tx *tx) error {
+func (usr *user) save(tx *tx) error {
 	stmt, err := tx.PrepareNamed(sqlSaveUser)
 
 	if err != nil {
@@ -28,18 +28,18 @@ func (u *user) save(tx *tx) error {
 
 	var id int
 
-	err = stmt.Get(&id, u)
+	err = stmt.Get(&id, usr)
 
 	if err != nil {
 		return errors.Wrap(err, "authgo: error when saving user")
 	}
 
-	u.ID = id
+	usr.ID = id
 
 	return nil
 }
 
-func (u *user) update(tx *tx) error {
+func (usr *user) update(tx *tx) error {
 	stmt, err := tx.PrepareNamed(sqlUpdateUser)
 
 	if err != nil {
@@ -53,7 +53,7 @@ func (u *user) update(tx *tx) error {
 			*user
 			NewVersion int `db:"new_version"`
 			OldVersion int `db:"old_version"`
-		}{u, u.Version + 1, u.Version},
+		}{usr, usr.Version + 1, usr.Version},
 	)
 
 	if err != nil {
@@ -73,30 +73,14 @@ func (u *user) update(tx *tx) error {
 	return nil
 }
 
-func (u *user) delete(tx *tx) error {
+func (usr *user) delete(tx *tx) error {
 	return nil
 }
 
-func findUserByID(tx *tx, id string) (*user, error) {
-	u := &user{}
+func (tx *tx) findUserByID(id string) (*user, error) {
+	usr := &user{}
 
-	err := tx.Get(u, sqlFindUserByID, id)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-
-	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding user")
-	}
-
-	return u, nil
-}
-
-func findUserByEmail(tx *tx, email string) (*user, error) {
-	u := &user{}
-
-	err := tx.Get(u, sqlFindUserByEmail, email)
+	err := tx.Get(usr, sqlFindUserByID, id)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -106,10 +90,26 @@ func findUserByEmail(tx *tx, email string) (*user, error) {
 		return nil, errors.Wrap(err, "authgo: error when finding user")
 	}
 
-	return u, nil
+	return usr, nil
 }
 
-func findAllUsers(tx *tx) ([]*user, error) {
+func (tx *tx) findUserByEmail(email string) (*user, error) {
+	usr := &user{}
+
+	err := tx.Get(usr, sqlFindUserByEmail, email)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "authgo: error when finding user")
+	}
+
+	return usr, nil
+}
+
+func (tx *tx) findAllUsers() ([]*user, error) {
 	users := []*user{}
 
 	err := tx.Select(&users, sqlFindAllUsers)

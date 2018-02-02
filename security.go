@@ -57,7 +57,7 @@ func getClaimsFromContext(c context.Context) (*jwtClaims, bool) {
 }
 
 func (sec *security) authenticate(w http.ResponseWriter, r *http.Request) error {
-	a, err := sec.authenticateRequest(r)
+	auth, err := sec.authenticateRequest(r)
 
 	if err != nil {
 		return err
@@ -65,13 +65,13 @@ func (sec *security) authenticate(w http.ResponseWriter, r *http.Request) error 
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     jwtCookieName,
-		Value:    a.tokenHolder.signedToken,
-		Expires:  a.tokenHolder.expires,
+		Value:    auth.tokenHolder.signedToken,
+		Expires:  auth.tokenHolder.expires,
 		HttpOnly: true,
 		Secure:   false,
 	})
 
-	return httpgo.WriteJSON(w, http.StatusOK, a.user)
+	return httpgo.WriteJSON(w, http.StatusOK, auth.user)
 }
 
 func (sec *security) authenticateRequest(r *http.Request) (*authentication, error) {
@@ -103,7 +103,7 @@ func (sec *security) resolveUser(email, password string) (*user, error) {
 		return nil, errors.Wrap(err, "authgo: transaction error")
 	}
 
-	user, err := findUserByEmail(tx, email)
+	user, err := tx.findUserByEmail(email)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: error when finding user")
@@ -134,13 +134,13 @@ func (sec *security) resolveUser(email, password string) (*user, error) {
 
 func authorize(next http.Handler) http.Handler {
 	return httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-		a, err := authorizeRequest(r)
+		auth, err := authorizeRequest(r)
 
 		if err != nil {
 			return err
 		}
 
-		next.ServeHTTP(w, r.WithContext(newContextWithClaims(r.Context(), a.claims)))
+		next.ServeHTTP(w, r.WithContext(newContextWithClaims(r.Context(), auth.claims)))
 
 		return nil
 	})
@@ -184,7 +184,7 @@ func (sec *security) getLogin(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (sec *security) postLogin(w http.ResponseWriter, r *http.Request) error {
-	a, err := sec.authenticateRequest(r)
+	auth, err := sec.authenticateRequest(r)
 
 	if err != nil {
 		return err
@@ -192,8 +192,8 @@ func (sec *security) postLogin(w http.ResponseWriter, r *http.Request) error {
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     jwtCookieName,
-		Value:    a.tokenHolder.signedToken,
-		Expires:  a.tokenHolder.expires,
+		Value:    auth.tokenHolder.signedToken,
+		Expires:  auth.tokenHolder.expires,
 		HttpOnly: true,
 		Secure:   false,
 	})
