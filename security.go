@@ -198,7 +198,7 @@ func (sec *security) postLogin(w http.ResponseWriter, r *http.Request) error {
 		Secure:   false,
 	})
 
-	http.Redirect(w, r, "/graphql", http.StatusSeeOther)
+	http.Redirect(w, r, "/graphiql", http.StatusSeeOther)
 
 	return nil
 }

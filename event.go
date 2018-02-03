@@ -27,7 +27,7 @@ func (evt *event) delete(tx *tx) error {
 	return nil
 }
 
-func findEventByID(tx *tx, id string) (*event, error) {
+func (tx *tx) findEventByID(id string) (*event, error) {
 	evt := &event{}
 
 	err := tx.Get(evt, sqlFindEventByID, id)
@@ -48,4 +48,18 @@ const (
 		SELECT id, created_by, created_at, type, description
 			FROM authgo.event WHERE id = $1;
 	`
+	sqlFindAllEvents = `
+		SELECT id, created_by, created_at, type, description
+			FROM authgo.event ORDER BY id;
+	`
 )
+
+const (
+	eventTypeUserCreated = "USER_CREATED"
+	eventTypeUserUpdated = "USER_UPDATED"
+)
+
+type eventType struct {
+	Name        string `db:"name" json:"name,omitempty"`
+	Description string `db:"description" json:"description,omitempty"`
+}
