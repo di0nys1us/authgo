@@ -3,9 +3,17 @@ schema {
 }
 
 type Query {
-    users: [User!]!   
+    users: [User!]!
+    user(id: ID, email: String): User
 }
 
 type User {
     id: ID!
+    version: Int!
+    firstName: String!
+    lastName: String!
+    email: String!
+    password: String!
+    enabled: Boolean!
+    deleted: Boolean!
 }

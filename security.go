@@ -2,7 +2,6 @@ package authgo
 
 import (
 	"context"
-	"html/template"
 	"net/http"
 	"time"
 
@@ -57,7 +56,7 @@ func getClaimsFromContext(c context.Context) (*jwtClaims, bool) {
 }
 
 func (sec *security) authenticate(w http.ResponseWriter, r *http.Request) error {
-	auth, err := sec.authenticateRequest(r)
+	aut, err := sec.authenticateRequest(r)
 
 	if err != nil {
 		return err
@@ -65,13 +64,13 @@ func (sec *security) authenticate(w http.ResponseWriter, r *http.Request) error 
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     jwtCookieName,
-		Value:    auth.tokenHolder.signedToken,
-		Expires:  auth.tokenHolder.expires,
+		Value:    aut.tokenHolder.signedToken,
+		Expires:  aut.tokenHolder.expires,
 		HttpOnly: true,
 		Secure:   false,
 	})
 
-	return httpgo.WriteJSON(w, http.StatusOK, auth.user)
+	return httpgo.WriteJSON(w, http.StatusOK, aut.user)
 }
 
 func (sec *security) authenticateRequest(r *http.Request) (*authentication, error) {
@@ -174,17 +173,11 @@ func authorizeRequest(r *http.Request) (*authorization, error) {
 }
 
 func (sec *security) getLogin(w http.ResponseWriter, r *http.Request) error {
-	tmpl, err := template.ParseFiles("../templates/login.html")
-
-	if err != nil {
-		return err
-	}
-
-	return tmpl.Execute(w, nil)
+	return writeString(w, templateLogin)
 }
 
 func (sec *security) postLogin(w http.ResponseWriter, r *http.Request) error {
-	auth, err := sec.authenticateRequest(r)
+	aut, err := sec.authenticateRequest(r)
 
 	if err != nil {
 		return err
@@ -192,8 +185,8 @@ func (sec *security) postLogin(w http.ResponseWriter, r *http.Request) error {
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     jwtCookieName,
-		Value:    auth.tokenHolder.signedToken,
-		Expires:  auth.tokenHolder.expires,
+		Value:    aut.tokenHolder.signedToken,
+		Expires:  aut.tokenHolder.expires,
 		HttpOnly: true,
 		Secure:   false,
 	})

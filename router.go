@@ -1,7 +1,6 @@
 package authgo
 
 import (
-	"html/template"
 	"log"
 	"net/http"
 
@@ -23,20 +22,14 @@ func NewRouter() http.Handler {
 
 	router := chi.NewRouter()
 
-	schema, err := graphql.ParseSchema(schema, &resolver{db})
+	schema, err := graphql.ParseSchema(readSchema(), &resolver{db})
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	graphiqlHandlerFunc := func(w http.ResponseWriter, r *http.Request) error {
-		tmpl, err := template.ParseFiles("../templates/graphiql.html")
-
-		if err != nil {
-			return err
-		}
-
-		return tmpl.Execute(w, nil)
+		return writeString(w, templateGraphiQL)
 	}
 
 	// Protected routes
