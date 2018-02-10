@@ -1,7 +1,6 @@
 package authgo
 
 import (
-	"log"
 	"strconv"
 
 	"github.com/neelance/graphql-go"
@@ -16,12 +15,7 @@ type resolver struct {
 }
 
 func (r *resolver) Users() ([]*userResolver, error) {
-	var users []*user
-	var err error
-
-	err = r.db.do(func(tx *tx) {
-		users, err = tx.findAllUsers()
-	})
+	users, err := r.db.findAllUsers()
 
 	if err != nil {
 		return nil, err
@@ -30,7 +24,7 @@ func (r *resolver) Users() ([]*userResolver, error) {
 	var resolvers []*userResolver
 
 	for _, user := range users {
-		resolvers = append(resolvers, &userResolver{user})
+		resolvers = append(resolvers, &userResolver{user, r.db})
 	}
 
 	return resolvers, nil
@@ -40,39 +34,27 @@ func (r *resolver) User(args struct {
 	ID    *graphql.ID
 	Email *string
 }) (*userResolver, error) {
-	tx, err := r.db.begin()
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		err := tx.Commit()
-
-		if err != nil {
-			log.Print(err)
-		}
-	}()
-
 	var user *user
+	var err error
 
 	if args.ID != nil {
-		user, err = tx.findUserByID(string(*args.ID))
+		user, err = r.db.findUserByID(string(*args.ID))
 	}
 
 	if args.Email != nil {
-		user, err = tx.findUserByEmail(*args.Email)
+		user, err = r.db.findUserByEmail(*args.Email)
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &userResolver{user}, nil
+	return &userResolver{user, r.db}, nil
 }
 
 type userResolver struct {
 	u *user
+	userRolesFinder
 }
 
 func (r *userResolver) ID() graphql.ID {
@@ -112,7 +94,19 @@ func (r *userResolver) Events() ([]*eventResolver, error) {
 }
 
 func (r *userResolver) Roles() ([]*roleResolver, error) {
-	return nil, nil
+	roles, err := r.findUserRoles(strconv.Itoa(r.u.ID))
+
+	if err != nil {
+		return nil, err
+	}
+
+	var resolvers []*roleResolver
+
+	for _, role := range roles {
+		resolvers = append(resolvers, &roleResolver{role})
+	}
+
+	return resolvers, nil
 }
 
 type eventResolver struct {

@@ -6,6 +6,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+type userRolesFinder interface {
+	findUserRoles(userID string) ([]*role, error)
+}
+
 type role struct {
 	ID      int    `db:"id" json:"id,omitempty"`
 	Version int    `db:"version" json:"version,omitempty"`
@@ -24,36 +28,60 @@ func (r *role) delete(tx *tx) error {
 	return nil
 }
 
-func findRoleByID(tx *tx, id string) (*role, error) {
+func (db *db) findRoleByID(id string) (*role, error) {
 	r := &role{}
 
-	err := tx.Get(r, sqlFindRoleByID, id)
+	err := db.Get(r, sqlFindRoleByID, id)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding role")
+		return nil, errors.Wrap(err, "authgo: error when finding role by id")
 	}
 
 	return r, nil
 }
 
-func findRoleByName(tx *tx, name string) (*role, error) {
+func (db *db) findRoleByName(name string) (*role, error) {
 	r := &role{}
 
-	err := tx.Get(r, sqlFindRoleByName, name)
+	err := db.Get(r, sqlFindRoleByName, name)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding role")
+		return nil, errors.Wrap(err, "authgo: error when finding role by name")
 	}
 
 	return r, nil
+}
+
+func (db *db) findAllRoles() ([]*role, error) {
+	roles := []*role{}
+
+	err := db.Select(&roles, sqlFindAllRoles)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "authgo: error when finding roles")
+	}
+
+	return roles, nil
+}
+
+func (db *db) findUserRoles(userID string) ([]*role, error) {
+	roles := []*role{}
+
+	err := db.Select(&roles, sqlFindUserRoles, userID)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "authgo: error when finding user roles")
+	}
+
+	return roles, nil
 }
 
 const (
@@ -85,7 +113,7 @@ const (
 		SELECT
 			r.id,
 			r.version,
-			r.name,
+			r.name
 		FROM "authgo"."user_role" AS ur
 			INNER JOIN "authgo"."role" AS r ON r.id = ur.role_id
 		WHERE ur.user_id = $1

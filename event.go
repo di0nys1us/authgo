@@ -27,17 +27,17 @@ func (evt *event) delete(tx *tx) error {
 	return nil
 }
 
-func (tx *tx) findEventByID(id string) (*event, error) {
+func (db *db) findEventByID(id string) (*event, error) {
 	evt := &event{}
 
-	err := tx.Get(evt, sqlFindEventByID, id)
+	err := db.Get(evt, sqlFindEventByID, id)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding event")
+		return nil, errors.Wrap(err, "authgo: error when finding event by id")
 	}
 
 	return evt, nil

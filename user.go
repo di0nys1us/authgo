@@ -77,42 +77,42 @@ func (usr *user) delete(tx *tx) error {
 	return nil
 }
 
-func (tx *tx) findUserByID(id string) (*user, error) {
+func (db *db) findUserByID(id string) (*user, error) {
 	usr := &user{}
 
-	err := tx.Get(usr, sqlFindUserByID, id)
+	err := db.Get(usr, sqlFindUserByID, id)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding user")
+		return nil, errors.Wrap(err, "authgo: error when finding user by id")
 	}
 
 	return usr, nil
 }
 
-func (tx *tx) findUserByEmail(email string) (*user, error) {
+func (db *db) findUserByEmail(email string) (*user, error) {
 	usr := &user{}
 
-	err := tx.Get(usr, sqlFindUserByEmail, email)
+	err := db.Get(usr, sqlFindUserByEmail, email)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding user")
+		return nil, errors.Wrap(err, "authgo: error when finding user by email")
 	}
 
 	return usr, nil
 }
 
-func (tx *tx) findAllUsers() ([]*user, error) {
+func (db *db) findAllUsers() ([]*user, error) {
 	users := []*user{}
 
-	err := tx.Select(&users, sqlFindAllUsers)
+	err := db.Select(&users, sqlFindAllUsers)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: error when finding users")

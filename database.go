@@ -1,8 +1,6 @@
 package authgo
 
 import (
-	"log"
-
 	"github.com/jmoiron/sqlx"
 )
 
@@ -18,28 +16,6 @@ func (db *db) begin() (*tx, error) {
 	}
 
 	return &tx{wrapped}, nil
-}
-
-func (db *db) do(fn func(tx *tx)) error {
-	txx, err := db.begin()
-
-	if err != nil {
-		return nil
-	}
-
-	defer func(tx *tx) error {
-		err := tx.Commit()
-
-		if err != nil {
-			log.Print(err)
-		}
-
-		return err
-	}(txx)
-
-	fn(txx)
-
-	return nil
 }
 
 func newDB() (*db, error) {

@@ -96,22 +96,10 @@ func (sec *security) authenticateRequest(r *http.Request) (*authentication, erro
 }
 
 func (sec *security) resolveUser(email, password string) (*user, error) {
-	tx, err := sec.db.begin()
-
-	if err != nil {
-		return nil, errors.Wrap(err, "authgo: transaction error")
-	}
-
-	user, err := tx.findUserByEmail(email)
+	user, err := sec.db.findUserByEmail(email)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: error when finding user")
-	}
-
-	err = tx.Commit()
-
-	if err != nil {
-		return nil, errors.Wrap(err, "authgo: transaction error")
 	}
 
 	if user == nil {
