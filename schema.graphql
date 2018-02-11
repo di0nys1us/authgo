@@ -1,14 +1,14 @@
 schema {
     query: Query
-    # mutation: Mutation
+    mutation: Mutation
 }
+
+# QUERY
 
 type Query {
     users: [User!]!
     user(id: ID, email: String): User
 }
-
-# type Mutation {}
 
 type User {
     id: ID!
@@ -57,4 +57,23 @@ enum EventType {
     USER_DELETED
     USER_ENABLED
     USER_DISABLED
+}
+
+# MUTATION
+
+type Mutation {
+    createUser(input: CreateUserInput!): CreateUserOutput!
+}
+
+input CreateUserInput {
+    firstName: String!
+    lastName: String!
+    email: String!
+    password: String!
+    enabled: Boolean!
+    deleted: Boolean!
+}
+
+type CreateUserOutput {
+    user: User
 }

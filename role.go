@@ -87,27 +87,27 @@ func (db *db) findUserRoles(userID string) ([]*role, error) {
 const (
 	sqlFindRoleByID = `
 		SELECT
-			r.id,
-			r.version,
-			r.name
-		FROM "authgo"."role" AS r
-		WHERE r.id = $1;
+			id,
+			version,
+			name
+		FROM "authgo"."role"
+		WHERE id = $1;
 	`
 	sqlFindRoleByName = `
 		SELECT
-			r.id,
-			r.version,
-			r.name
-		FROM "authgo"."role" AS r
-		WHERE r.name = $1;
+			id,
+			version,
+			name
+		FROM "authgo"."role"
+		WHERE name = $1;
 	`
 	sqlFindAllRoles = `
 		SELECT
-			r.id,
-			r.version,
-			r.name
-		FROM "authgo"."role" AS r
-		ORDER BY r.id;
+			id,
+			version,
+			name
+		FROM "authgo"."role"
+		ORDER BY id;
 	`
 	sqlFindUserRoles = `
 		SELECT

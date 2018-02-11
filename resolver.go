@@ -1,6 +1,7 @@
 package authgo
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/neelance/graphql-go"
@@ -24,7 +25,7 @@ func (r *resolver) Users() ([]*userResolver, error) {
 	var resolvers []*userResolver
 
 	for _, user := range users {
-		resolvers = append(resolvers, &userResolver{user, r.db})
+		resolvers = append(resolvers, &userResolver{user, r.db, r.db})
 	}
 
 	return resolvers, nil
@@ -49,11 +50,27 @@ func (r *resolver) User(args struct {
 		return nil, err
 	}
 
-	return &userResolver{user, r.db}, nil
+	return &userResolver{user, r.db, r.db}, nil
+}
+
+func (r *resolver) CreateUser(args struct {
+	Input struct {
+		FirstName string
+		LastName  string
+		Email     string
+		Password  string
+		Enabled   bool
+		Deleted   bool
+	}
+}) (*createUserOutput, error) {
+	log.Print(args)
+
+	return &createUserOutput{}, nil
 }
 
 type userResolver struct {
-	u *user
+	u  *user
+	db *db
 	userRolesFinder
 }
 
@@ -103,7 +120,7 @@ func (r *userResolver) Roles() ([]*roleResolver, error) {
 	var resolvers []*roleResolver
 
 	for _, role := range roles {
-		resolvers = append(resolvers, &roleResolver{role})
+		resolvers = append(resolvers, &roleResolver{role, r.db, r.db})
 	}
 
 	return resolvers, nil
@@ -134,7 +151,9 @@ func (r *eventResolver) Description() string {
 }
 
 type roleResolver struct {
-	r *role
+	r  *role
+	db *db
+	roleAuthoritiesFinder
 }
 
 func (r *roleResolver) ID() graphql.ID {
@@ -154,7 +173,19 @@ func (r *roleResolver) Events() ([]*eventResolver, error) {
 }
 
 func (r *roleResolver) Authorities() ([]*authorityResolver, error) {
-	return nil, nil
+	authorities, err := r.findRoleAuthorities(strconv.Itoa(r.r.ID))
+
+	if err != nil {
+		return nil, err
+	}
+
+	var resolvers []*authorityResolver
+
+	for _, authority := range authorities {
+		resolvers = append(resolvers, &authorityResolver{authority})
+	}
+
+	return resolvers, nil
 }
 
 func (r *roleResolver) Users() ([]*userResolver, error) {
@@ -183,4 +214,12 @@ func (r *authorityResolver) Events() ([]*eventResolver, error) {
 
 func (r *authorityResolver) Roles() ([]*roleResolver, error) {
 	return nil, nil
+}
+
+type createUserOutput struct {
+	user *userResolver
+}
+
+func (o *createUserOutput) User() *userResolver {
+	return o.user
 }

@@ -28,16 +28,14 @@ func NewRouter() http.Handler {
 		log.Fatal(err)
 	}
 
-	graphiqlHandlerFunc := func(w http.ResponseWriter, r *http.Request) error {
-		return writeString(w, templateGraphiQL)
-	}
-
 	// Protected routes
 	router.Group(func(g chi.Router) {
 		g.Use(authorize)
 
 		g.Handle("/graphql", &relay.Handler{Schema: schema})
-		g.Method(http.MethodGet, "/graphiql", httpgo.ErrorHandlerFunc(graphiqlHandlerFunc))
+		g.Method(http.MethodGet, "/graphiql", httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+			return writeString(w, templateGraphiQL)
+		}))
 	})
 
 	// Public routes

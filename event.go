@@ -45,12 +45,14 @@ func (db *db) findEventByID(id string) (*event, error) {
 
 const (
 	sqlFindEventByID = `
-		SELECT id, created_by, created_at, type, description
-			FROM authgo.event WHERE id = $1;
+		SELECT
+			id, created_by, created_at, type, description
+		FROM authgo.event WHERE id = $1;
 	`
 	sqlFindAllEvents = `
-		SELECT id, created_by, created_at, type, description
-			FROM authgo.event ORDER BY id;
+		SELECT
+			id, created_by, created_at, type, description
+		FROM authgo.event ORDER BY id;
 	`
 )
 

@@ -6,6 +6,18 @@ import (
 	"github.com/pkg/errors"
 )
 
+// INTERFACES
+
+type userByIDFinder interface {
+	findUserByID(id string) (*user, error)
+}
+
+type userByEmailFinder interface {
+	findUserByEmail(email string) (*user, error)
+}
+
+// STRUCTS
+
 type user struct {
 	ID        int    `db:"id" json:"id,omitempty"`
 	Version   int    `db:"version" json:"version,omitempty"`
