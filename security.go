@@ -1,7 +1,8 @@
-package authgo
+package main
 
 import (
 	"context"
+	"html/template"
 	"net/http"
 	"time"
 
@@ -29,21 +30,21 @@ var (
 
 type jwtClaimsKey string
 
-type authentication struct {
+type authenticationHolder struct {
 	user        *user
 	tokenHolder *tokenHolder
 }
 
-type authorization struct {
+type authorizationHolder struct {
 	claims *jwtClaims
 }
 
 type security struct {
-	db *db
+	userByEmailFinder userByEmailFinder
 }
 
-func newSecurity(db *db) *security {
-	return &security{db}
+func newSecurity(userByEmailFinder userByEmailFinder) *security {
+	return &security{userByEmailFinder}
 }
 
 func newContextWithClaims(c context.Context, claims *jwtClaims) context.Context {
@@ -55,48 +56,42 @@ func getClaimsFromContext(c context.Context) (*jwtClaims, bool) {
 	return claims, ok
 }
 
-func (sec *security) authenticate(w http.ResponseWriter, r *http.Request) error {
-	aut, err := sec.authenticateRequest(r)
+func (s *security) authenticate(w http.ResponseWriter, r *http.Request) error {
+	authentication, err := s.authenticateRequest(r)
 
 	if err != nil {
 		return err
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     jwtCookieName,
-		Value:    aut.tokenHolder.signedToken,
-		Expires:  aut.tokenHolder.expires,
-		HttpOnly: true,
-		Secure:   false,
-	})
+	setAuthenticationCookie(w, authentication)
 
-	return httpgo.WriteJSON(w, http.StatusOK, aut.user)
+	return httpgo.WriteJSON(w, http.StatusOK, authentication.user)
 }
 
-func (sec *security) authenticateRequest(r *http.Request) (*authentication, error) {
+func (s *security) authenticateRequest(r *http.Request) (*authenticationHolder, error) {
 	err := r.ParseForm()
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: error when reading credentials")
 	}
 
-	subject, err := sec.resolveUser(r.Form.Get(keyEmail), r.Form.Get(keyPassword))
+	user, err := s.resolveUser(r.Form.Get(keyEmail), r.Form.Get(keyPassword))
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: error when resolving subject")
 	}
 
-	t, err := createToken(subject)
+	token, err := createToken(user)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: error when creating token")
 	}
 
-	return &authentication{subject, t}, nil
+	return &authenticationHolder{user, token}, nil
 }
 
-func (sec *security) resolveUser(email, password string) (*user, error) {
-	user, err := sec.db.findUserByEmail(email)
+func (s *security) resolveUser(email, password string) (*user, error) {
+	user, err := s.userByEmailFinder.findUserByEmail(email)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: error when finding user")
@@ -110,6 +105,10 @@ func (sec *security) resolveUser(email, password string) (*user, error) {
 		return nil, errors.New("authgo: user is not enabled")
 	}
 
+	if user.Deleted {
+		return nil, errors.New("authgo: user is deleted")
+	}
+
 	err = validateHashedPassword(user.Password, password)
 
 	if err != nil {
@@ -121,19 +120,19 @@ func (sec *security) resolveUser(email, password string) (*user, error) {
 
 func authorize(next http.Handler) http.Handler {
 	return httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-		auth, err := authorizeRequest(r)
+		authorization, err := authorizeRequest(r)
 
 		if err != nil {
 			return err
 		}
 
-		next.ServeHTTP(w, r.WithContext(newContextWithClaims(r.Context(), auth.claims)))
+		next.ServeHTTP(w, r.WithContext(newContextWithClaims(r.Context(), authorization.claims)))
 
 		return nil
 	})
 }
 
-func authorizeRequest(r *http.Request) (*authorization, error) {
+func authorizeRequest(r *http.Request) (*authorizationHolder, error) {
 	cookie, err := r.Cookie(jwtCookieName)
 
 	if err != nil {
@@ -157,27 +156,27 @@ func authorizeRequest(r *http.Request) (*authorization, error) {
 		return nil, errors.Wrap(err, "authgo: invalid claims")
 	}
 
-	return &authorization{claims}, nil
+	return &authorizationHolder{claims}, nil
 }
 
-func (sec *security) getLogin(w http.ResponseWriter, r *http.Request) error {
-	return writeString(w, templateLogin)
-}
-
-func (sec *security) postLogin(w http.ResponseWriter, r *http.Request) error {
-	aut, err := sec.authenticateRequest(r)
+func (s *security) getLogin(w http.ResponseWriter, r *http.Request) error {
+	tmpl, err := template.ParseFiles("./templates/login.html")
 
 	if err != nil {
 		return err
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     jwtCookieName,
-		Value:    aut.tokenHolder.signedToken,
-		Expires:  aut.tokenHolder.expires,
-		HttpOnly: true,
-		Secure:   false,
-	})
+	return tmpl.Execute(w, nil)
+}
+
+func (s *security) postLogin(w http.ResponseWriter, r *http.Request) error {
+	authentication, err := s.authenticateRequest(r)
+
+	if err != nil {
+		return err
+	}
+
+	setAuthenticationCookie(w, authentication)
 
 	http.Redirect(w, r, "/graphiql", http.StatusSeeOther)
 
@@ -192,6 +191,16 @@ func validateHashedPassword(hashedPassword, password string) error {
 func generateHashedPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(hashedPassword), errors.Wrap(err, "authgo: error when generating hashed password")
+}
+
+func setAuthenticationCookie(w http.ResponseWriter, a *authenticationHolder) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     jwtCookieName,
+		Value:    a.tokenHolder.signedToken,
+		Expires:  a.tokenHolder.expiresAt,
+		HttpOnly: true,
+		Secure:   false,
+	})
 }
 
 func invalidate(w http.ResponseWriter, r *http.Request) error {

@@ -1,6 +1,7 @@
-package authgo
+package main
 
 import (
+	"html/template"
 	"log"
 	"net/http"
 
@@ -11,14 +12,14 @@ import (
 )
 
 // NewRouter TODO
-func NewRouter() http.Handler {
+func newRouter() http.Handler {
 	db, err := newDB()
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	sec := newSecurity(db)
+	security := newSecurity(db)
 
 	router := chi.NewRouter()
 
@@ -34,15 +35,21 @@ func NewRouter() http.Handler {
 
 		g.Handle("/graphql", &relay.Handler{Schema: schema})
 		g.Method(http.MethodGet, "/graphiql", httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-			return writeString(w, templateGraphiQL)
+			tmpl, err := template.ParseFiles("./templates/graphiql.html")
+
+			if err != nil {
+				return err
+			}
+
+			return tmpl.Execute(w, nil)
 		}))
 	})
 
 	// Public routes
 	router.Group(func(g chi.Router) {
-		g.Method(http.MethodGet, "/login", httpgo.ErrorHandlerFunc(sec.getLogin))
-		g.Method(http.MethodPost, "/login", httpgo.ErrorHandlerFunc(sec.postLogin))
-		g.Method(http.MethodPost, "/authenticate", httpgo.ErrorHandlerFunc(sec.authenticate))
+		g.Method(http.MethodGet, "/login", httpgo.ErrorHandlerFunc(security.getLogin))
+		g.Method(http.MethodPost, "/login", httpgo.ErrorHandlerFunc(security.postLogin))
+		g.Method(http.MethodPost, "/authenticate", httpgo.ErrorHandlerFunc(security.authenticate))
 		g.Method(http.MethodGet, "/invalidate", httpgo.ErrorHandlerFunc(invalidate))
 	})
 

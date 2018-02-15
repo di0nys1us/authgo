@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/di0nys1us/authgo"
 	"github.com/joho/godotenv"
 
 	_ "github.com/lib/pq"
@@ -29,5 +28,5 @@ func main() {
 		addr = fmt.Sprintf(":%s", port)
 	}
 
-	log.Fatal(http.ListenAndServe(addr, authgo.NewRouter()))
+	log.Fatal(http.ListenAndServe(addr, newRouter()))
 }

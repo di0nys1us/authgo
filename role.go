@@ -1,4 +1,4 @@
-package authgo
+package main
 
 import (
 	"database/sql"

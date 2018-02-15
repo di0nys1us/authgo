@@ -1,4 +1,4 @@
-package authgo
+package main
 
 import (
 	"os"
@@ -18,7 +18,7 @@ type tokenHolder struct {
 	token       *jwt.Token
 	signedToken string
 	claims      *jwtClaims
-	expires     time.Time
+	expiresAt   time.Time
 }
 
 func createToken(user *user) (*tokenHolder, error) {
@@ -29,11 +29,11 @@ func createToken(user *user) (*tokenHolder, error) {
 	}
 
 	now := timeFunc()
-	expires := now.AddDate(0, 0, 1)
+	expiresAt := now.AddDate(0, 0, 1)
 	claims := &jwtClaims{
 		&jwt.StandardClaims{
 			Audience:  jwtAudience,
-			ExpiresAt: expires.Unix(),
+			ExpiresAt: expiresAt.Unix(),
 			Id:        id.String(),
 			IssuedAt:  now.Unix(),
 			Issuer:    jwtIssuer,
@@ -56,11 +56,11 @@ func createToken(user *user) (*tokenHolder, error) {
 		return nil, errors.Wrap(err, "authgo: error when signing the token")
 	}
 
-	return &tokenHolder{token, signedToken, claims, expires}, nil
+	return &tokenHolder{token, signedToken, claims, expiresAt}, nil
 }
 
-func resolveSecurityKey(token *jwt.Token) (interface{}, error) {
-	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+func resolveSecurityKey(t *jwt.Token) (interface{}, error) {
+	if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 		return nil, errInvalidSigningMethod
 	}
 

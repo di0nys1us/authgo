@@ -1,4 +1,4 @@
-package authgo
+package main
 
 import (
 	"database/sql"
@@ -29,7 +29,7 @@ type user struct {
 	Deleted   bool   `db:"deleted" json:"deleted,omitempty"`
 }
 
-func (usr *user) save(tx *tx) error {
+func (u *user) save(tx *tx) error {
 	stmt, err := tx.PrepareNamed(sqlSaveUser)
 
 	if err != nil {
@@ -40,18 +40,18 @@ func (usr *user) save(tx *tx) error {
 
 	var id int
 
-	err = stmt.Get(&id, usr)
+	err = stmt.Get(&id, u)
 
 	if err != nil {
 		return errors.Wrap(err, "authgo: error when saving user")
 	}
 
-	usr.ID = id
+	u.ID = id
 
 	return nil
 }
 
-func (usr *user) update(tx *tx) error {
+func (u *user) update(tx *tx) error {
 	stmt, err := tx.PrepareNamed(sqlUpdateUser)
 
 	if err != nil {
@@ -65,7 +65,7 @@ func (usr *user) update(tx *tx) error {
 			*user
 			NewVersion int `db:"new_version"`
 			OldVersion int `db:"old_version"`
-		}{usr, usr.Version + 1, usr.Version},
+		}{u, u.Version + 1, u.Version},
 	)
 
 	if err != nil {
@@ -85,14 +85,14 @@ func (usr *user) update(tx *tx) error {
 	return nil
 }
 
-func (usr *user) delete(tx *tx) error {
+func (u *user) delete(tx *tx) error {
 	return nil
 }
 
 func (db *db) findUserByID(id string) (*user, error) {
-	usr := &user{}
+	u := &user{}
 
-	err := db.Get(usr, sqlFindUserByID, id)
+	err := db.Get(u, sqlFindUserByID, id)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -102,13 +102,13 @@ func (db *db) findUserByID(id string) (*user, error) {
 		return nil, errors.Wrap(err, "authgo: error when finding user by id")
 	}
 
-	return usr, nil
+	return u, nil
 }
 
 func (db *db) findUserByEmail(email string) (*user, error) {
-	usr := &user{}
+	u := &user{}
 
-	err := db.Get(usr, sqlFindUserByEmail, email)
+	err := db.Get(u, sqlFindUserByEmail, email)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -118,7 +118,7 @@ func (db *db) findUserByEmail(email string) (*user, error) {
 		return nil, errors.Wrap(err, "authgo: error when finding user by email")
 	}
 
-	return usr, nil
+	return u, nil
 }
 
 func (db *db) findAllUsers() ([]*user, error) {

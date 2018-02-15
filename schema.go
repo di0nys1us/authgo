@@ -1,4 +1,4 @@
-package authgo
+package main
 
 import (
 	"io/ioutil"
@@ -6,7 +6,7 @@ import (
 )
 
 func readSchema() string {
-	data, err := ioutil.ReadFile("../schema.graphql")
+	data, err := ioutil.ReadFile("./schemas/schema.graphql")
 
 	if err != nil {
 		log.Fatal(err)

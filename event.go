@@ -1,4 +1,4 @@
-package authgo
+package main
 
 import (
 	"database/sql"
@@ -15,22 +15,22 @@ type event struct {
 	Description string    `db:"description" json:"description,omitempty"`
 }
 
-func (evt *event) save(tx *tx) error {
+func (e *event) save(tx *tx) error {
 	return nil
 }
 
-func (evt *event) update(tx *tx) error {
+func (e *event) update(tx *tx) error {
 	return nil
 }
 
-func (evt *event) delete(tx *tx) error {
+func (e *event) delete(tx *tx) error {
 	return nil
 }
 
 func (db *db) findEventByID(id string) (*event, error) {
-	evt := &event{}
+	e := &event{}
 
-	err := db.Get(evt, sqlFindEventByID, id)
+	err := db.Get(e, sqlFindEventByID, id)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -40,7 +40,11 @@ func (db *db) findEventByID(id string) (*event, error) {
 		return nil, errors.Wrap(err, "authgo: error when finding event by id")
 	}
 
-	return evt, nil
+	return e, nil
+}
+
+func (db *db) findEventsByUserID(userID string) ([]*event, error) {
+	return nil, nil
 }
 
 const (
@@ -52,7 +56,20 @@ const (
 	sqlFindAllEvents = `
 		SELECT
 			id, created_by, created_at, type, description
-		FROM authgo.event ORDER BY id;
+		FROM authgo.event
+		ORDER BY id;
+	`
+	sqlFindEventsByUserID = `
+		select
+			e.id,
+			e.created_by,
+			e.created_at,
+			e.type,
+			e.description
+		from authgo."event" as e
+		inner join authgo.user_event as ue on e.id = ue.user_id
+		where ue.user_id = 1
+		order by e.created_at desc, e.id desc;
 	`
 )
 
