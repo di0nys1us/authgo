@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"strconv"
 
 	"github.com/neelance/graphql-go"
@@ -11,12 +10,12 @@ func intToID(v int) graphql.ID {
 	return graphql.ID(strconv.Itoa(v))
 }
 
-type resolver struct {
-	db *db
+type rootResolver struct {
+	repository repository
 }
 
-func (r *resolver) Users() ([]*userResolver, error) {
-	users, err := r.db.findAllUsers()
+func (r *rootResolver) Users() ([]*userResolver, error) {
+	users, err := r.repository.findAllUsers()
 
 	if err != nil {
 		return nil, err
@@ -25,13 +24,13 @@ func (r *resolver) Users() ([]*userResolver, error) {
 	var resolvers []*userResolver
 
 	for _, user := range users {
-		resolvers = append(resolvers, &userResolver{user, r.db, r.db})
+		resolvers = append(resolvers, &userResolver{r.repository, user})
 	}
 
 	return resolvers, nil
 }
 
-func (r *resolver) User(args struct {
+func (r *rootResolver) User(args struct {
 	ID    *graphql.ID
 	Email *string
 }) (*userResolver, error) {
@@ -39,21 +38,21 @@ func (r *resolver) User(args struct {
 	var err error
 
 	if args.ID != nil {
-		user, err = r.db.findUserByID(string(*args.ID))
+		user, err = r.repository.findUserByID(string(*args.ID))
 	}
 
 	if args.Email != nil {
-		user, err = r.db.findUserByEmail(*args.Email)
+		user, err = r.repository.findUserByEmail(*args.Email)
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &userResolver{user, r.db, r.db}, nil
+	return &userResolver{r.repository, user}, nil
 }
 
-func (r *resolver) CreateUser(args struct {
+func (r *rootResolver) CreateUser(args struct {
 	Input struct {
 		FirstName string
 		LastName  string
@@ -63,15 +62,29 @@ func (r *resolver) CreateUser(args struct {
 		Deleted   bool
 	}
 }) (*createUserOutput, error) {
-	log.Print(args)
+	// TODO Validation
 
-	return &createUserOutput{}, nil
+	user := &user{
+		FirstName: args.Input.FirstName,
+		LastName:  args.Input.LastName,
+		Email:     args.Input.Email,
+		Password:  args.Input.Password,
+		Enabled:   args.Input.Enabled,
+		Deleted:   args.Input.Deleted,
+	}
+
+	err := r.repository.saveUser(user)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &createUserOutput{&userResolver{r.repository, user}}, nil
 }
 
 type userResolver struct {
-	u  *user
-	db *db
-	userRolesFinder
+	repository repository
+	u          *user
 }
 
 func (r *userResolver) ID() graphql.ID {
@@ -111,7 +124,7 @@ func (r *userResolver) Events() ([]*eventResolver, error) {
 }
 
 func (r *userResolver) Roles() ([]*roleResolver, error) {
-	roles, err := r.findUserRoles(strconv.Itoa(r.u.ID))
+	roles, err := r.repository.findUserRoles(strconv.Itoa(r.u.ID))
 
 	if err != nil {
 		return nil, err
@@ -120,14 +133,15 @@ func (r *userResolver) Roles() ([]*roleResolver, error) {
 	var resolvers []*roleResolver
 
 	for _, role := range roles {
-		resolvers = append(resolvers, &roleResolver{role, r.db, r.db})
+		resolvers = append(resolvers, &roleResolver{r.repository, role})
 	}
 
 	return resolvers, nil
 }
 
 type eventResolver struct {
-	evt *event
+	repository repository
+	evt        *event
 }
 
 func (r *eventResolver) ID() graphql.ID {
@@ -151,9 +165,8 @@ func (r *eventResolver) Description() string {
 }
 
 type roleResolver struct {
-	r  *role
-	db *db
-	roleAuthoritiesFinder
+	repository repository
+	r          *role
 }
 
 func (r *roleResolver) ID() graphql.ID {
@@ -173,7 +186,7 @@ func (r *roleResolver) Events() ([]*eventResolver, error) {
 }
 
 func (r *roleResolver) Authorities() ([]*authorityResolver, error) {
-	authorities, err := r.findRoleAuthorities(strconv.Itoa(r.r.ID))
+	authorities, err := r.repository.findRoleAuthorities(strconv.Itoa(r.r.ID))
 
 	if err != nil {
 		return nil, err
@@ -182,7 +195,7 @@ func (r *roleResolver) Authorities() ([]*authorityResolver, error) {
 	var resolvers []*authorityResolver
 
 	for _, authority := range authorities {
-		resolvers = append(resolvers, &authorityResolver{authority})
+		resolvers = append(resolvers, &authorityResolver{r.repository, authority})
 	}
 
 	return resolvers, nil
@@ -193,7 +206,8 @@ func (r *roleResolver) Users() ([]*userResolver, error) {
 }
 
 type authorityResolver struct {
-	a *authority
+	repository repository
+	a          *authority
 }
 
 func (r *authorityResolver) ID() graphql.ID {

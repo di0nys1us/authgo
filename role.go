@@ -10,8 +10,12 @@ type userRolesFinder interface {
 	findUserRoles(userID string) ([]*role, error)
 }
 
+type roleRepository interface {
+	userRolesFinder
+}
+
 type role struct {
-	ID      int    `db:"id" json:"id,omitempty"`
+	*entity
 	Version int    `db:"version" json:"version,omitempty"`
 	Name    string `db:"name" json:"name,omitempty"`
 }

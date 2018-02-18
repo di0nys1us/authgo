@@ -1,13 +1,23 @@
 package main
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
+
+// INTERFACES
 
 type roleAuthoritiesFinder interface {
 	findRoleAuthorities(roleID string) ([]*authority, error)
 }
 
+type authorityRepository interface {
+	roleAuthoritiesFinder
+}
+
+// STRUCTS
+
 type authority struct {
-	ID      int    `db:"id" json:"id,omitempty"`
+	*entity
 	Version int    `db:"version" json:"version,omitempty"`
 	Name    string `db:"name" json:"name,omitempty"`
 }

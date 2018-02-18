@@ -2,6 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -16,10 +18,25 @@ type userByEmailFinder interface {
 	findUserByEmail(email string) (*user, error)
 }
 
+type allUsersFinder interface {
+	findAllUsers() ([]*user, error)
+}
+
+type userSaver interface {
+	saveUser(*user) error
+}
+
+type userRepository interface {
+	userByIDFinder
+	userByEmailFinder
+	allUsersFinder
+	userSaver
+}
+
 // STRUCTS
 
 type user struct {
-	ID        int    `db:"id" json:"id,omitempty"`
+	*entity
 	Version   int    `db:"version" json:"version,omitempty"`
 	FirstName string `db:"first_name" json:"firstName,omitempty"`
 	LastName  string `db:"last_name" json:"lastName,omitempty"`
@@ -30,23 +47,13 @@ type user struct {
 }
 
 func (u *user) save(tx *tx) error {
-	stmt, err := tx.PrepareNamed(sqlSaveUser)
-
-	if err != nil {
-		return errors.Wrap(err, "authgo: error when preparing statement")
-	}
-
-	defer stmt.Close()
-
-	var id int
-
-	err = stmt.Get(&id, u)
+	entity, err := tx.saveEntity(u, sqlSaveUser)
 
 	if err != nil {
 		return errors.Wrap(err, "authgo: error when saving user")
 	}
 
-	u.ID = id
+	u.entity = entity
 
 	return nil
 }
@@ -131,6 +138,29 @@ func (db *db) findAllUsers() ([]*user, error) {
 	}
 
 	return users, nil
+}
+
+func (db *db) saveUser(user *user) error {
+	event := &event{
+		CreatedBy:   1,
+		CreatedAt:   time.Now(),
+		Type:        eventTypeUserCreated,
+		Description: fmt.Sprintf("User %q created.", user.Email),
+	}
+
+	tx, err := db.save(user, event)
+
+	userEvent := &userEvent{user.ID, event.ID}
+
+	userEvent.save(tx)
+
+	tx.Commit()
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 const (

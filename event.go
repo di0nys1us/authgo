@@ -7,15 +7,30 @@ import (
 	"github.com/pkg/errors"
 )
 
+// INTERFACES
+
+type eventRepository interface {
+}
+
+// STRUCTS
+
 type event struct {
-	ID          int       `db:"id" json:"id,omitempty"`
+	*entity
 	CreatedBy   int       `db:"created_by" json:"created_by,omitempty"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at,omitempty"`
-	Type        int       `db:"type" json:"type,omitempty"`
+	Type        string    `db:"type" json:"type,omitempty"`
 	Description string    `db:"description" json:"description,omitempty"`
 }
 
 func (e *event) save(tx *tx) error {
+	entity, err := tx.saveEntity(e, sqlSaveEvent)
+
+	if err != nil {
+		return errors.Wrap(err, "authgo: error when saving event")
+	}
+
+	e.entity = entity
+
 	return nil
 }
 
@@ -24,6 +39,21 @@ func (e *event) update(tx *tx) error {
 }
 
 func (e *event) delete(tx *tx) error {
+	return nil
+}
+
+type userEvent struct {
+	UserID  int `db:"user_id"`
+	EventID int `db:"event_id"`
+}
+
+func (e *userEvent) save(tx *tx) error {
+	err := tx.save(e, sqlSaveUserEvent)
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -48,6 +78,15 @@ func (db *db) findEventsByUserID(userID string) ([]*event, error) {
 }
 
 const (
+	sqlSaveEvent = `
+		insert into "authgo"."event" ("created_by", "created_at", "type", "description")
+		values (:created_by, :created_at, :type, :description)
+		returning "id";
+	`
+	sqlSaveUserEvent = `
+		insert into "authgo"."event" ("user_id", "event_id")
+		values (:user_id, :event_id)
+	`
 	sqlFindEventByID = `
 		SELECT
 			id, created_by, created_at, type, description

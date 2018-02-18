@@ -11,7 +11,6 @@ import (
 	"github.com/neelance/graphql-go/relay"
 )
 
-// NewRouter TODO
 func newRouter() http.Handler {
 	db, err := newDB()
 
@@ -20,10 +19,9 @@ func newRouter() http.Handler {
 	}
 
 	security := newSecurity(db)
-
 	router := chi.NewRouter()
 
-	schema, err := graphql.ParseSchema(readSchema(), &resolver{db})
+	schema, err := graphql.ParseSchema(readSchema(), &rootResolver{db})
 
 	if err != nil {
 		log.Fatal(err)
