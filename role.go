@@ -16,8 +16,7 @@ type roleRepository interface {
 
 type role struct {
 	*entity
-	Version int    `db:"version" json:"version,omitempty"`
-	Name    string `db:"name" json:"name,omitempty"`
+	Name string `db:"name" json:"name,omitempty"`
 }
 
 func (r *role) save(tx *tx) error {

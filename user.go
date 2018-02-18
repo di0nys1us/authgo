@@ -37,7 +37,6 @@ type userRepository interface {
 
 type user struct {
 	*entity
-	Version   int    `db:"version" json:"version,omitempty"`
 	FirstName string `db:"first_name" json:"firstName,omitempty"`
 	LastName  string `db:"last_name" json:"lastName,omitempty"`
 	Email     string `db:"email" json:"email,omitempty"`
@@ -150,11 +149,19 @@ func (db *db) saveUser(user *user) error {
 
 	tx, err := db.save(user, event)
 
+	if err != nil {
+		return err
+	}
+
 	userEvent := &userEvent{user.ID, event.ID}
 
 	userEvent.save(tx)
 
-	tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
 
 	if err != nil {
 		return err

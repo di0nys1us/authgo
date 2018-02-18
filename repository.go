@@ -7,7 +7,8 @@ type repository interface {
 }
 
 type entity struct {
-	ID int `db:"id" json:"id,omitempty"`
+	ID      int `db:"id" json:"id,omitempty"`
+	Version int `db:"version" json:"version,omitempty"`
 }
 
 type saver interface {

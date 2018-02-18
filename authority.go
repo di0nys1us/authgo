@@ -18,8 +18,7 @@ type authorityRepository interface {
 
 type authority struct {
 	*entity
-	Version int    `db:"version" json:"version,omitempty"`
-	Name    string `db:"name" json:"name,omitempty"`
+	Name string `db:"name" json:"name,omitempty"`
 }
 
 func (a *authority) save(tx *tx) error {

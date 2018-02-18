@@ -77,6 +77,14 @@ func (db *db) findEventsByUserID(userID string) ([]*event, error) {
 	return nil, nil
 }
 
+func (db *db) findEventsByRoleID(roleID string) ([]*event, error) {
+	return nil, nil
+}
+
+func (db *db) findEventsByAuthorityID(authorityID string) ([]*event, error) {
+	return nil, nil
+}
+
 const (
 	sqlSaveEvent = `
 		insert into "authgo"."event" ("created_by", "created_at", "type", "description")
