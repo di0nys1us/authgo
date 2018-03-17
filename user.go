@@ -36,7 +36,8 @@ type userRepository interface {
 // STRUCTS
 
 type user struct {
-	*entity
+	ID        int    `db:"id" json:"id,omitempty"`
+	Version   int    `db:"version" json:"version,omitempty"`
 	FirstName string `db:"first_name" json:"firstName,omitempty"`
 	LastName  string `db:"last_name" json:"lastName,omitempty"`
 	Email     string `db:"email" json:"email,omitempty"`
@@ -46,13 +47,13 @@ type user struct {
 }
 
 func (u *user) save(tx *tx) error {
-	entity, err := tx.saveEntity(u, sqlSaveUser)
+	id, err := tx.save(u, sqlSaveUser)
 
 	if err != nil {
-		return errors.Wrap(err, "authgo: error when saving user")
+		return errors.WithStack(err)
 	}
 
-	u.entity = entity
+	u.ID = id
 
 	return nil
 }
@@ -61,7 +62,7 @@ func (u *user) update(tx *tx) error {
 	stmt, err := tx.PrepareNamed(sqlUpdateUser)
 
 	if err != nil {
-		return errors.Wrap(err, "authgo: error when preparing statement")
+		return errors.WithStack(err)
 	}
 
 	defer stmt.Close()
@@ -75,13 +76,13 @@ func (u *user) update(tx *tx) error {
 	)
 
 	if err != nil {
-		return errors.Wrap(err, "authgo: error when updating user")
+		return errors.WithStack(err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 
 	if err != nil {
-		return errors.Wrap(err, "authgo: error when checking for rows affected")
+		return errors.WithStack(err)
 	}
 
 	if rowsAffected != 1 {
@@ -105,7 +106,7 @@ func (db *db) findUserByID(id string) (*user, error) {
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding user by id")
+		return nil, errors.WithStack(err)
 	}
 
 	return u, nil
@@ -121,7 +122,7 @@ func (db *db) findUserByEmail(email string) (*user, error) {
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding user by email")
+		return nil, errors.WithStack(err)
 	}
 
 	return u, nil
@@ -133,41 +134,43 @@ func (db *db) findAllUsers() ([]*user, error) {
 	err := db.Select(&users, sqlFindAllUsers)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding users")
+		return nil, errors.WithStack(err)
 	}
 
 	return users, nil
 }
 
 func (db *db) saveUser(user *user) error {
-	event := &event{
-		CreatedBy:   1,
-		CreatedAt:   time.Now(),
-		Type:        eventTypeUserCreated,
-		Description: fmt.Sprintf("User %q created.", user.Email),
-	}
+	return db.run(func(tx *tx) error {
+		err := user.save(tx)
 
-	tx, err := db.save(user, event)
+		if err != nil {
+			return errors.WithStack(err)
+		}
 
-	if err != nil {
-		return err
-	}
+		event := &event{
+			CreatedBy:   1,
+			CreatedAt:   time.Now(),
+			Type:        eventTypeUserCreated,
+			Description: fmt.Sprintf("User %q created.", user.Email),
+		}
 
-	userEvent := &userEvent{user.ID, event.ID}
+		err = event.save(tx)
 
-	userEvent.save(tx)
+		if err != nil {
+			return errors.WithStack(err)
+		}
 
-	if err != nil {
-		return err
-	}
+		userEvent := &userEvent{user.ID, event.ID}
 
-	err = tx.Commit()
+		err = userEvent.save(tx)
 
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return errors.WithStack(err)
+		}
 
-	return nil
+		return nil
+	})
 }
 
 const (

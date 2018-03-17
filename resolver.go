@@ -11,6 +11,7 @@ func intToID(v int) graphql.ID {
 }
 
 type rootResolver struct {
+	*rootMutation
 	repository repository
 }
 
@@ -52,36 +53,6 @@ func (r *rootResolver) User(args struct {
 	return &userResolver{r.repository, user}, nil
 }
 
-func (r *rootResolver) CreateUser(args struct {
-	Input struct {
-		FirstName string
-		LastName  string
-		Email     string
-		Password  string
-		Enabled   bool
-		Deleted   bool
-	}
-}) (*createUserOutput, error) {
-	// TODO Validation
-
-	user := &user{
-		FirstName: args.Input.FirstName,
-		LastName:  args.Input.LastName,
-		Email:     args.Input.Email,
-		Password:  args.Input.Password,
-		Enabled:   args.Input.Enabled,
-		Deleted:   args.Input.Deleted,
-	}
-
-	err := r.repository.saveUser(user)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &createUserOutput{&userResolver{r.repository, user}}, nil
-}
-
 type userResolver struct {
 	repository repository
 	u          *user
@@ -120,7 +91,19 @@ func (r *userResolver) Deleted() bool {
 }
 
 func (r *userResolver) Events() ([]*eventResolver, error) {
-	return nil, nil
+	events, err := r.repository.findEventsByUserID(strconv.Itoa(r.u.ID))
+
+	if err != nil {
+		return nil, err
+	}
+
+	var resolvers []*eventResolver
+
+	for _, event := range events {
+		resolvers = append(resolvers, &eventResolver{r.repository, event})
+	}
+
+	return resolvers, nil
 }
 
 func (r *userResolver) Roles() ([]*roleResolver, error) {
@@ -141,27 +124,33 @@ func (r *userResolver) Roles() ([]*roleResolver, error) {
 
 type eventResolver struct {
 	repository repository
-	evt        *event
+	event      *event
 }
 
 func (r *eventResolver) ID() graphql.ID {
-	return intToID(r.evt.ID)
+	return intToID(r.event.ID)
 }
 
 func (r *eventResolver) CreatedBy() (*userResolver, error) {
-	return nil, nil
+	user, err := r.repository.findUserByID(strconv.Itoa(r.event.CreatedBy))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &userResolver{r.repository, user}, nil
 }
 
 func (r *eventResolver) CreatedAt() string {
-	return r.evt.CreatedAt.String()
+	return r.event.CreatedAt.String()
 }
 
 func (r *eventResolver) Type() (string, error) {
-	return "TODO", nil
+	return r.event.Type, nil
 }
 
 func (r *eventResolver) Description() string {
-	return r.evt.Description
+	return r.event.Description
 }
 
 type roleResolver struct {
@@ -228,12 +217,4 @@ func (r *authorityResolver) Events() ([]*eventResolver, error) {
 
 func (r *authorityResolver) Roles() ([]*roleResolver, error) {
 	return nil, nil
-}
-
-type createUserOutput struct {
-	user *userResolver
-}
-
-func (o *createUserOutput) User() *userResolver {
-	return o.user
 }

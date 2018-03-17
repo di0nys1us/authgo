@@ -9,13 +9,18 @@ import (
 
 // INTERFACES
 
+type eventsByUserIDFinder interface {
+	findEventsByUserID(userID string) ([]*event, error)
+}
+
 type eventRepository interface {
+	eventsByUserIDFinder
 }
 
 // STRUCTS
 
 type event struct {
-	*entity
+	ID          int       `db:"id" json:"id,omitempty"`
 	CreatedBy   int       `db:"created_by" json:"created_by,omitempty"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at,omitempty"`
 	Type        string    `db:"type" json:"type,omitempty"`
@@ -23,13 +28,13 @@ type event struct {
 }
 
 func (e *event) save(tx *tx) error {
-	entity, err := tx.saveEntity(e, sqlSaveEvent)
+	id, err := tx.save(e, sqlSaveEvent)
 
 	if err != nil {
-		return errors.Wrap(err, "authgo: error when saving event")
+		return errors.WithStack(err)
 	}
 
-	e.entity = entity
+	e.ID = id
 
 	return nil
 }
@@ -48,10 +53,10 @@ type userEvent struct {
 }
 
 func (e *userEvent) save(tx *tx) error {
-	err := tx.save(e, sqlSaveUserEvent)
+	_, err := tx.save(e, sqlSaveUserEvent)
 
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	return nil
@@ -67,14 +72,22 @@ func (db *db) findEventByID(id string) (*event, error) {
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding event by id")
+		return nil, errors.WithStack(err)
 	}
 
 	return e, nil
 }
 
 func (db *db) findEventsByUserID(userID string) ([]*event, error) {
-	return nil, nil
+	events := []*event{}
+
+	err := db.Select(&events, sqlFindEventsByUserID, userID)
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return events, nil
 }
 
 func (db *db) findEventsByRoleID(roleID string) ([]*event, error) {
@@ -92,8 +105,9 @@ const (
 		returning "id";
 	`
 	sqlSaveUserEvent = `
-		insert into "authgo"."event" ("user_id", "event_id")
+		insert into "authgo"."user_event" ("user_id", "event_id")
 		values (:user_id, :event_id)
+		returning 0 as "id";
 	`
 	sqlFindEventByID = `
 		SELECT
@@ -108,15 +122,15 @@ const (
 	`
 	sqlFindEventsByUserID = `
 		select
-			e.id,
-			e.created_by,
-			e.created_at,
-			e.type,
-			e.description
-		from authgo."event" as e
-		inner join authgo.user_event as ue on e.id = ue.user_id
-		where ue.user_id = 1
-		order by e.created_at desc, e.id desc;
+			"event"."id",
+			"event"."created_by",
+			"event"."created_at",
+			"event"."type",
+			"event"."description"
+		from "authgo"."event"
+		inner join "authgo"."user_event" on "event"."id" = "user_event"."event_id"
+		where "user_event"."user_id" = $1
+		order by "event"."created_at" desc, "event"."id" desc;
 	`
 )
 

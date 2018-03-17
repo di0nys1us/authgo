@@ -17,8 +17,9 @@ type authorityRepository interface {
 // STRUCTS
 
 type authority struct {
-	*entity
-	Name string `db:"name" json:"name,omitempty"`
+	ID      int    `db:"id" json:"id,omitempty"`
+	Version int    `db:"version" json:"version,omitempty"`
+	Name    string `db:"name" json:"name,omitempty"`
 }
 
 func (a *authority) save(tx *tx) error {
@@ -39,7 +40,7 @@ func (db *db) findRoleAuthorities(roleID string) ([]*authority, error) {
 	err := db.Select(&authorities, sqlFindRoleAuthorities, roleID)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when finding role authorities")
+		return nil, errors.WithStack(err)
 	}
 
 	return authorities, nil
@@ -48,10 +49,12 @@ func (db *db) findRoleAuthorities(roleID string) ([]*authority, error) {
 const (
 	sqlFindRoleAuthorities = `
 		select
-			a.id, a.version, a.name
-		from authgo.role_authority as ra
-		inner join authgo.authority as a on a.id = ra.authority_id
-		where ra.role_id = $1
-		order by a.id;
+			authority.id,
+			authority.version,
+			authority.name
+		from authgo.authority
+		inner join authgo.role_authority on role_authority.authority_id = authority.id
+		where role_authority.role_id = $1
+		order by authority.id;
 	`
 )

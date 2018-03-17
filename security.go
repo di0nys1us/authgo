@@ -178,7 +178,7 @@ func (s *security) postLogin(w http.ResponseWriter, r *http.Request) error {
 
 	setAuthenticationCookie(w, authentication)
 
-	http.Redirect(w, r, "/graphiql", http.StatusSeeOther)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	return nil
 }

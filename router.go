@@ -21,7 +21,7 @@ func newRouter() http.Handler {
 	security := newSecurity(db)
 	router := chi.NewRouter()
 
-	schema, err := graphql.ParseSchema(readSchema(), &rootResolver{db})
+	schema, err := graphql.ParseSchema(readSchema(), &rootResolver{&rootMutation{db}, db})
 
 	if err != nil {
 		log.Fatal(err)
@@ -32,7 +32,7 @@ func newRouter() http.Handler {
 		g.Use(authorize)
 
 		g.Handle("/graphql", &relay.Handler{Schema: schema})
-		g.Method(http.MethodGet, "/graphiql", httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		g.Method(http.MethodGet, "/", httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
 			tmpl, err := template.ParseFiles("./templates/graphiql.html")
 
 			if err != nil {

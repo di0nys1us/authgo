@@ -1,3 +1,3 @@
 #!/bin/sh
 
-gin --path ./ --build ./
+gin --path ./ --build ./ -p 5000 -a 5001

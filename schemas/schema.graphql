@@ -19,7 +19,6 @@ type User {
     password: String!
     enabled: Boolean!
     deleted: Boolean!
-
     events: [Event!]!
     roles: [Role!]!
 }
@@ -28,7 +27,6 @@ type Role {
     id: ID!
     version: Int!
     name: String!
-
     events: [Event!]!
     authorities: [Authority!]!
     users: [User!]!
@@ -38,7 +36,6 @@ type Authority {
     id: ID!
     version: Int!
     name: String!
-
     events: [Event!]!
     roles: [Role!]!
 }
@@ -55,17 +52,28 @@ enum EventType {
     USER_CREATED
     USER_UPDATED
     USER_DELETED
-    USER_ENABLED
+    USER_RESTORED
     USER_DISABLED
+    USER_ENABLED
 }
 
 # MUTATION
 
 type Mutation {
-    createUser(input: CreateUserInput!): CreateUserOutput!
+    createUser(input: UserInput!): UserOutput!
+    updateUser(identity: Identity!, input: UserInput!): UserOutput!
+    createRole(input: RoleInput!): RoleOutput!
+    updateRole(identity: Identity!, input: RoleInput!): RoleOutput!
+    createAuthority(input: AuthorityInput!): AuthorityOutput!
+    updateAuthority(identity: Identity!, input: AuthorityInput!): AuthorityOutput!
 }
 
-input CreateUserInput {
+input Identity {
+    id: ID!
+    version: Int!
+}
+
+input UserInput {
     firstName: String!
     lastName: String!
     email: String!
@@ -74,6 +82,22 @@ input CreateUserInput {
     deleted: Boolean!
 }
 
-type CreateUserOutput {
+type UserOutput {
     user: User
+}
+
+input RoleInput {
+    name: String!
+}
+
+type RoleOutput {
+    role: Role
+}
+
+input AuthorityInput {
+    name: String!
+}
+
+type AuthorityOutput {
+    authority: Authority
 }
