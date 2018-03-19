@@ -10,6 +10,10 @@ import (
 
 // INTERFACES
 
+type allUsersFinder interface {
+	findAllUsers() ([]*user, error)
+}
+
 type userByIDFinder interface {
 	findUserByID(id string) (*user, error)
 }
@@ -18,18 +22,14 @@ type userByEmailFinder interface {
 	findUserByEmail(email string) (*user, error)
 }
 
-type allUsersFinder interface {
-	findAllUsers() ([]*user, error)
-}
-
 type userSaver interface {
 	saveUser(*user) error
 }
 
 type userRepository interface {
+	allUsersFinder
 	userByIDFinder
 	userByEmailFinder
-	allUsersFinder
 	userSaver
 }
 
@@ -96,6 +96,18 @@ func (u *user) delete(tx *tx) error {
 	return nil
 }
 
+func (db *db) findAllUsers() ([]*user, error) {
+	users := []*user{}
+
+	err := db.Select(&users, sqlFindAllUsers)
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return users, nil
+}
+
 func (db *db) findUserByID(id string) (*user, error) {
 	u := &user{}
 
@@ -126,18 +138,6 @@ func (db *db) findUserByEmail(email string) (*user, error) {
 	}
 
 	return u, nil
-}
-
-func (db *db) findAllUsers() ([]*user, error) {
-	users := []*user{}
-
-	err := db.Select(&users, sqlFindAllUsers)
-
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	return users, nil
 }
 
 func (db *db) saveUser(user *user) error {
@@ -175,24 +175,24 @@ func (db *db) saveUser(user *user) error {
 
 const (
 	sqlSaveUser = `
-		INSERT INTO "authgo"."user" (
+		insert into "authgo"."user" (
 			"first_name",
 			"last_name",
 			"email",
 			"password",
 			"enabled",
 			"deleted"
-		) VALUES (
+		) values (
 			:first_name,
 			:last_name,
 			:email,
 			:password,
 			:enabled,
 			:deleted
-		) RETURNING "id";
+		) returning "user"."id";
 	`
 	sqlUpdateUser = `
-		UPDATE "authgo"."user" SET
+		update "authgo"."user" set
 			"version" = :new_version,
 			"first_name" = :first_name,
 			"last_name" = :last_name,
@@ -200,45 +200,45 @@ const (
 			"password" = :password,
 			"enabled" = :enabled,
 			"deleted" = :deleted
-		WHERE "id" = :id
-			AND "version" = :old_version;
+		where "user"."id" = :id
+			and "user"."version" = :old_version;
 	`
 	sqlDeleteUser   = ``
 	sqlFindUserByID = `
-		SELECT
-			"id",
-			"version",
-			"first_name",
-			"last_name",
-			"email",
-			"enabled",
-			"deleted"
-		FROM "authgo"."user"
-		WHERE "id" = $1;
+		select
+			"user"."id",
+			"user"."version",
+			"user"."first_name",
+			"user"."last_name",
+			"user"."email",
+			"user"."enabled",
+			"user"."deleted"
+		from "authgo"."user"
+		where "user"."id" = $1;
 	`
 	sqlFindUserByEmail = `
-		SELECT
-			"id",
-			"version",
-			"first_name",
-			"last_name",
-			"email",
-			"password",
-			"enabled",
-			"deleted"
-		FROM "authgo"."user"
-		WHERE "email" = $1;
+		select
+			"user"."id",
+			"user"."version",
+			"user"."first_name",
+			"user"."last_name",
+			"user"."email",
+			"user"."password",
+			"user"."enabled",
+			"user"."deleted"
+		from "authgo"."user"
+		where "user"."email" = $1;
 	`
 	sqlFindAllUsers = `
-		SELECT
-			"id",
-			"version",
-			"first_name",
-			"last_name",
-			"email",
-			"enabled",
-			"deleted"
-		FROM "authgo"."user"
-		ORDER BY "id";
+		select
+			"user"."id",
+			"user"."version",
+			"user"."first_name",
+			"user"."last_name",
+			"user"."email",
+			"user"."enabled",
+			"user"."deleted"
+		from "authgo"."user"
+		order by "user"."id";
 	`
 )

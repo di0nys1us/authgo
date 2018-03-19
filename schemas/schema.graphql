@@ -8,6 +8,8 @@ schema {
 type Query {
     users: [User!]!
     user(id: ID, email: String): User
+    events(userId: ID): [Event!]!
+    event(id: ID!): Event
 }
 
 type User {

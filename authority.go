@@ -49,12 +49,12 @@ func (db *db) findRoleAuthorities(roleID string) ([]*authority, error) {
 const (
 	sqlFindRoleAuthorities = `
 		select
-			authority.id,
-			authority.version,
-			authority.name
-		from authgo.authority
-		inner join authgo.role_authority on role_authority.authority_id = authority.id
-		where role_authority.role_id = $1
-		order by authority.id;
+			"authority"."id",
+			"authority"."version",
+			"authority"."name"
+		from "authgo"."authority"
+		inner join "authgo"."role_authority" on "role_authority"."authority_id" = "authority"."id"
+		where "role_authority"."role_id" = $1
+		order by "authority"."id";
 	`
 )

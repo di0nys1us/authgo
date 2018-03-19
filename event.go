@@ -9,11 +9,21 @@ import (
 
 // INTERFACES
 
+type allEventsFinder interface {
+	findAllEvents() ([]*event, error)
+}
+
+type eventByIDFinder interface {
+	findEventByID(id string) (*event, error)
+}
+
 type eventsByUserIDFinder interface {
 	findEventsByUserID(userID string) ([]*event, error)
 }
 
 type eventRepository interface {
+	allEventsFinder
+	eventByIDFinder
 	eventsByUserIDFinder
 }
 
@@ -39,14 +49,6 @@ func (e *event) save(tx *tx) error {
 	return nil
 }
 
-func (e *event) update(tx *tx) error {
-	return nil
-}
-
-func (e *event) delete(tx *tx) error {
-	return nil
-}
-
 type userEvent struct {
 	UserID  int `db:"user_id"`
 	EventID int `db:"event_id"`
@@ -62,10 +64,22 @@ func (e *userEvent) save(tx *tx) error {
 	return nil
 }
 
-func (db *db) findEventByID(id string) (*event, error) {
-	e := &event{}
+func (db *db) findAllEvents() ([]*event, error) {
+	events := []*event{}
 
-	err := db.Get(e, sqlFindEventByID, id)
+	err := db.Select(&events, sqlFindAllEvents)
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return events, nil
+}
+
+func (db *db) findEventByID(id string) (*event, error) {
+	event := &event{}
+
+	err := db.Get(event, sqlFindEventByID, id)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -75,7 +89,7 @@ func (db *db) findEventByID(id string) (*event, error) {
 		return nil, errors.WithStack(err)
 	}
 
-	return e, nil
+	return event, nil
 }
 
 func (db *db) findEventsByUserID(userID string) ([]*event, error) {
@@ -100,25 +114,34 @@ func (db *db) findEventsByAuthorityID(authorityID string) ([]*event, error) {
 
 const (
 	sqlSaveEvent = `
-		insert into "authgo"."event" ("created_by", "created_at", "type", "description")
+		insert into authgo.event (created_by, created_at, type, description)
 		values (:created_by, :created_at, :type, :description)
-		returning "id";
+		returning id;
 	`
 	sqlSaveUserEvent = `
-		insert into "authgo"."user_event" ("user_id", "event_id")
+		insert into authgo.user_event (user_id, event_id)
 		values (:user_id, :event_id)
-		returning 0 as "id";
-	`
-	sqlFindEventByID = `
-		SELECT
-			id, created_by, created_at, type, description
-		FROM authgo.event WHERE id = $1;
+		returning -1 as id;
 	`
 	sqlFindAllEvents = `
-		SELECT
-			id, created_by, created_at, type, description
-		FROM authgo.event
-		ORDER BY id;
+		select
+			"event"."id",
+			"event"."created_by",
+			"event"."created_at",
+			"event"."type",
+			"event"."description"
+		from "authgo"."event"
+		order by "event"."created_at" desc, "event"."id" desc;
+	`
+	sqlFindEventByID = `
+		select
+			"event"."id",
+			"event"."created_by",
+			"event"."created_at",
+			"event"."type",
+			"event"."description"
+		from "authgo"."event"
+		where "event"."id" = $1;
 	`
 	sqlFindEventsByUserID = `
 		select
@@ -128,7 +151,7 @@ const (
 			"event"."type",
 			"event"."description"
 		from "authgo"."event"
-		inner join "authgo"."user_event" on "event"."id" = "user_event"."event_id"
+			inner join "authgo"."user_event" on "user_event"."event_id" = "event"."id"
 		where "user_event"."user_id" = $1
 		order by "event"."created_at" desc, "event"."id" desc;
 	`

@@ -21,7 +21,10 @@ func newRouter() http.Handler {
 	security := newSecurity(db)
 	router := chi.NewRouter()
 
-	schema, err := graphql.ParseSchema(readSchema(), &rootResolver{&rootMutation{db}, db})
+	schema, err := graphql.ParseSchema(readSchema(), &rootResolver{
+		&rootQuery{db},
+		&rootMutation{db},
+	})
 
 	if err != nil {
 		log.Fatal(err)
