@@ -2,7 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
 	"time"
+
+	"github.com/satori/go.uuid"
 
 	"github.com/pkg/errors"
 )
@@ -30,11 +34,23 @@ type eventRepository interface {
 // STRUCTS
 
 type event struct {
-	ID          int       `db:"id" json:"id,omitempty"`
-	CreatedBy   int       `db:"created_by" json:"created_by,omitempty"`
-	CreatedAt   time.Time `db:"created_at" json:"created_at,omitempty"`
-	Type        string    `db:"type" json:"type,omitempty"`
-	Description string    `db:"description" json:"description,omitempty"`
+	ID          uuid.UUID `json:"id,omitempty"`
+	CreatedBy   string    `json:"created_by,omitempty"`
+	CreatedAt   time.Time `json:"created_at,omitempty"`
+	Type        string    `json:"type,omitempty"`
+	Description string    `json:"description,omitempty"`
+}
+
+func (e *event) Scan(src interface{}) error {
+	return nil
+}
+
+func (e *event) Value() (driver.Value, error) {
+	if e == nil {
+		return nil, nil
+	}
+
+	return json.Marshal(e)
 }
 
 func (e *event) save(tx *tx) error {
@@ -45,21 +61,6 @@ func (e *event) save(tx *tx) error {
 	}
 
 	e.ID = id
-
-	return nil
-}
-
-type userEvent struct {
-	UserID  int `db:"user_id"`
-	EventID int `db:"event_id"`
-}
-
-func (e *userEvent) save(tx *tx) error {
-	_, err := tx.save(e, sqlSaveUserEvent)
-
-	if err != nil {
-		return errors.WithStack(err)
-	}
 
 	return nil
 }

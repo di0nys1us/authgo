@@ -1,8 +1,6 @@
 package main
 
 import (
-	"strconv"
-
 	graphql "github.com/neelance/graphql-go"
 )
 
@@ -12,11 +10,11 @@ type eventResolver struct {
 }
 
 func (r *eventResolver) ID() graphql.ID {
-	return intToID(r.event.ID)
+	return graphql.ID(r.event.ID.String())
 }
 
 func (r *eventResolver) CreatedBy() (*userResolver, error) {
-	user, err := r.repository.findUserByID(strconv.Itoa(r.event.CreatedBy))
+	user, err := r.repository.findUserByID(r.event.CreatedBy)
 
 	if err != nil {
 		return nil, err

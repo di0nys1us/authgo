@@ -1,8 +1,6 @@
 package main
 
 import (
-	"strconv"
-
 	graphql "github.com/neelance/graphql-go"
 )
 
@@ -12,7 +10,7 @@ type userResolver struct {
 }
 
 func (r *userResolver) ID() graphql.ID {
-	return intToID(r.user.ID)
+	return graphql.ID(r.user.ID.String())
 }
 
 func (r *userResolver) Version() int32 {
@@ -44,7 +42,7 @@ func (r *userResolver) Deleted() bool {
 }
 
 func (r *userResolver) Events() ([]*eventResolver, error) {
-	events, err := r.repository.findEventsByUserID(strconv.Itoa(r.user.ID))
+	events, err := r.repository.findEventsByUserID(r.user.ID.String())
 
 	if err != nil {
 		return nil, err
@@ -60,7 +58,7 @@ func (r *userResolver) Events() ([]*eventResolver, error) {
 }
 
 func (r *userResolver) Roles() ([]*roleResolver, error) {
-	roles, err := r.repository.findUserRoles(strconv.Itoa(r.user.ID))
+	roles, err := r.repository.findUserRoles(r.user.ID.String())
 
 	if err != nil {
 		return nil, err

@@ -1,5 +1,5 @@
 CREATE TABLE "authgo"."user" (
-    "id" BIGSERIAL NOT NULL,
+    "id" UUID NOT NULL,
     "version" BIGINT NOT NULL DEFAULT 0,
     "first_name" VARCHAR(255) NOT NULL,
     "last_name" VARCHAR(255) NOT NULL,
@@ -7,6 +7,7 @@ CREATE TABLE "authgo"."user" (
     "password" TEXT NOT NULL,
     "enabled" BOOLEAN NOT NULL DEFAULT TRUE,
     "deleted" BOOLEAN NOT NULL DEFAULT FALSE,
+    "events" JSONB NOT NULL DEFAULT '[]',
 
     PRIMARY KEY ("id"),
     UNIQUE ("email")

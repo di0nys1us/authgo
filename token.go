@@ -11,7 +11,7 @@ import (
 
 type jwtClaims struct {
 	*jwt.StandardClaims
-	UserID int `json:"uid"`
+	UserID string `json:"uid"`
 }
 
 type tokenHolder struct {
@@ -40,7 +40,7 @@ func createToken(user *user) (*tokenHolder, error) {
 			NotBefore: now.Unix(),
 			Subject:   user.Email,
 		},
-		user.ID,
+		user.ID.String(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 

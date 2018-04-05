@@ -17,9 +17,10 @@ type authorityRepository interface {
 // STRUCTS
 
 type authority struct {
-	ID      int    `db:"id" json:"id,omitempty"`
-	Version int    `db:"version" json:"version,omitempty"`
-	Name    string `db:"name" json:"name,omitempty"`
+	ID      string   `db:"id"`
+	Version int      `db:"version"`
+	Events  []*event `db:"events"`
+	Name    string   `db:"name"`
 }
 
 func (a *authority) save(tx *tx) error {

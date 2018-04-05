@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/satori/go.uuid"
+
 	"github.com/pkg/errors"
 )
 
@@ -36,14 +38,15 @@ type userRepository interface {
 // STRUCTS
 
 type user struct {
-	ID        int    `db:"id" json:"id,omitempty"`
-	Version   int    `db:"version" json:"version,omitempty"`
-	FirstName string `db:"first_name" json:"firstName,omitempty"`
-	LastName  string `db:"last_name" json:"lastName,omitempty"`
-	Email     string `db:"email" json:"email,omitempty"`
-	Password  string `db:"password" json:"password,omitempty"`
-	Enabled   bool   `db:"enabled" json:"enabled,omitempty"`
-	Deleted   bool   `db:"deleted" json:"deleted,omitempty"`
+	ID        uuid.UUID `db:"id" json:"id,omitempty"`
+	Version   int       `db:"version" json:"version,omitempty"`
+	FirstName string    `db:"first_name" json:"firstName,omitempty"`
+	LastName  string    `db:"last_name" json:"lastName,omitempty"`
+	Email     string    `db:"email" json:"email,omitempty"`
+	Password  string    `db:"password" json:"password,omitempty"`
+	Enabled   bool      `db:"enabled" json:"enabled,omitempty"`
+	Deleted   bool      `db:"deleted" json:"deleted,omitempty"`
+	Events    []*event  `db:"events"`
 }
 
 func (u *user) save(tx *tx) error {
@@ -141,29 +144,24 @@ func (db *db) findUserByEmail(email string) (*user, error) {
 }
 
 func (db *db) saveUser(user *user) error {
-	return db.run(func(tx *tx) error {
-		err := user.save(tx)
+	return db.commit(func(tx *tx) error {
+		eventID, err := uuid.NewV4()
 
 		if err != nil {
 			return errors.WithStack(err)
 		}
 
 		event := &event{
-			CreatedBy:   1,
+			ID:          eventID,
+			CreatedBy:   "1",
 			CreatedAt:   time.Now(),
 			Type:        eventTypeUserCreated,
 			Description: fmt.Sprintf("User %q created.", user.Email),
 		}
 
-		err = event.save(tx)
+		user.Events = append(user.Events, event)
 
-		if err != nil {
-			return errors.WithStack(err)
-		}
-
-		userEvent := &userEvent{user.ID, event.ID}
-
-		err = userEvent.save(tx)
+		err = user.save(tx)
 
 		if err != nil {
 			return errors.WithStack(err)

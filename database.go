@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"github.com/satori/go.uuid"
 )
 
 func newDB() (*db, error) {
@@ -20,7 +21,7 @@ type db struct {
 }
 
 func (db *db) begin() (*tx, error) {
-	wrapped, err := db.DB.Beginx()
+	wrapped, err := db.Beginx()
 
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -29,7 +30,7 @@ func (db *db) begin() (*tx, error) {
 	return &tx{wrapped}, nil
 }
 
-func (db *db) run(fn func(tx *tx) error) error {
+func (db *db) commit(fn func(tx *tx) error) error {
 	tx, err := db.begin()
 
 	if err != nil {
@@ -55,21 +56,21 @@ type tx struct {
 	*sqlx.Tx
 }
 
-func (tx *tx) save(arg interface{}, query string) (int, error) {
+func (tx *tx) save(arg interface{}, query string) (uuid.UUID, error) {
 	stmt, err := tx.PrepareNamed(query)
 
 	if err != nil {
-		return -1, errors.WithStack(err)
+		return uuid.Nil, errors.WithStack(err)
 	}
 
 	defer stmt.Close()
 
-	var id int
+	var id uuid.UUID
 
 	err = stmt.Get(&id, arg)
 
 	if err != nil {
-		return -1, errors.WithStack(err)
+		return uuid.Nil, errors.WithStack(err)
 	}
 
 	return id, nil

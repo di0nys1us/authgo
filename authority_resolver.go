@@ -6,19 +6,19 @@ import (
 
 type authorityResolver struct {
 	repository repository
-	a          *authority
+	authority  *authority
 }
 
 func (r *authorityResolver) ID() graphql.ID {
-	return intToID(r.a.ID)
+	return graphql.ID(r.authority.ID)
 }
 
 func (r *authorityResolver) Version() int32 {
-	return int32(r.a.Version)
+	return int32(r.authority.Version)
 }
 
 func (r *authorityResolver) Name() string {
-	return r.a.Name
+	return r.authority.Name
 }
 
 func (r *authorityResolver) Events() ([]*eventResolver, error) {
