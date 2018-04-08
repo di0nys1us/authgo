@@ -1,26 +1,24 @@
 package main
 
 import (
-	"strconv"
-
-	graphql "github.com/neelance/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 )
 
 type roleResolver struct {
 	repository repository
-	r          *role
+	role       *role
 }
 
 func (r *roleResolver) ID() graphql.ID {
-	return intToID(r.r.ID)
+	return graphQLID(r.role.ID)
 }
 
 func (r *roleResolver) Version() int32 {
-	return int32(r.r.Version)
+	return int32(r.role.Version)
 }
 
 func (r *roleResolver) Name() string {
-	return r.r.Name
+	return r.role.Name
 }
 
 func (r *roleResolver) Events() ([]*eventResolver, error) {
@@ -28,7 +26,7 @@ func (r *roleResolver) Events() ([]*eventResolver, error) {
 }
 
 func (r *roleResolver) Authorities() ([]*authorityResolver, error) {
-	authorities, err := r.repository.findRoleAuthorities(strconv.Itoa(r.r.ID))
+	authorities, err := r.repository.findRoleAuthorities(r.role.ID.String())
 
 	if err != nil {
 		return nil, err

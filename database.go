@@ -6,6 +6,10 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+const (
+	sqlGenerateUUID = "SELECT uuid_generate_v1mc();"
+)
+
 func newDB() (*db, error) {
 	wrapped, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=postgres sslmode=disable")
 
@@ -50,6 +54,18 @@ func (db *db) commit(fn func(tx *tx) error) error {
 	}
 
 	return nil
+}
+
+func (db *db) generateUUID() (uuid.UUID, error) {
+	var generated uuid.UUID
+
+	err := db.Get(&generated, sqlGenerateUUID)
+
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return generated, nil
 }
 
 type tx struct {

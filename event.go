@@ -35,22 +35,10 @@ type eventRepository interface {
 
 type event struct {
 	ID          uuid.UUID `json:"id,omitempty"`
-	CreatedBy   string    `json:"created_by,omitempty"`
-	CreatedAt   time.Time `json:"created_at,omitempty"`
+	CreatedBy   uuid.UUID `json:"createdBy,omitempty"`
+	CreatedAt   time.Time `json:"createdAt,omitempty"`
 	Type        string    `json:"type,omitempty"`
 	Description string    `json:"description,omitempty"`
-}
-
-func (e *event) Scan(src interface{}) error {
-	return nil
-}
-
-func (e *event) Value() (driver.Value, error) {
-	if e == nil {
-		return nil, nil
-	}
-
-	return json.Marshal(e)
 }
 
 func (e *event) save(tx *tx) error {
@@ -63,6 +51,24 @@ func (e *event) save(tx *tx) error {
 	e.ID = id
 
 	return nil
+}
+
+type events []*event
+
+func (e *events) Scan(src interface{}) error {
+	if src == nil {
+		return nil
+	}
+
+	return json.Unmarshal(src.([]byte), e)
+}
+
+func (e *events) Value() (driver.Value, error) {
+	if e == nil {
+		return nil, nil
+	}
+
+	return json.Marshal(e)
 }
 
 func (db *db) findAllEvents() ([]*event, error) {

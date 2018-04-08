@@ -46,7 +46,7 @@ type user struct {
 	Password  string    `db:"password" json:"password,omitempty"`
 	Enabled   bool      `db:"enabled" json:"enabled,omitempty"`
 	Deleted   bool      `db:"deleted" json:"deleted,omitempty"`
-	Events    []*event  `db:"events"`
+	Events    events    `db:"events" json:"events,omitempty"`
 }
 
 func (u *user) save(tx *tx) error {
@@ -145,7 +145,7 @@ func (db *db) findUserByEmail(email string) (*user, error) {
 
 func (db *db) saveUser(user *user) error {
 	return db.commit(func(tx *tx) error {
-		eventID, err := uuid.NewV4()
+		eventID, err := db.generateUUID()
 
 		if err != nil {
 			return errors.WithStack(err)
@@ -153,7 +153,7 @@ func (db *db) saveUser(user *user) error {
 
 		event := &event{
 			ID:          eventID,
-			CreatedBy:   "1",
+			CreatedBy:   uuid.Nil,
 			CreatedAt:   time.Now(),
 			Type:        eventTypeUserCreated,
 			Description: fmt.Sprintf("User %q created.", user.Email),
@@ -235,7 +235,8 @@ const (
 			"user"."last_name",
 			"user"."email",
 			"user"."enabled",
-			"user"."deleted"
+			"user"."deleted",
+			"user"."events"
 		from "authgo"."user"
 		order by "user"."id";
 	`

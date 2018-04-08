@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/pkg/errors"
+	"github.com/satori/go.uuid"
 )
 
 // INTERFACES
@@ -17,10 +18,10 @@ type authorityRepository interface {
 // STRUCTS
 
 type authority struct {
-	ID      string   `db:"id"`
-	Version int      `db:"version"`
-	Events  []*event `db:"events"`
-	Name    string   `db:"name"`
+	ID      uuid.UUID `db:"id"`
+	Version int       `db:"version"`
+	Events  []*event  `db:"events"`
+	Name    string    `db:"name"`
 }
 
 func (a *authority) save(tx *tx) error {

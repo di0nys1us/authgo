@@ -1,13 +1,21 @@
 package main
 
 import (
-	"strconv"
-
-	"github.com/neelance/graphql-go"
+	"github.com/graph-gophers/graphql-go"
+	"github.com/satori/go.uuid"
 )
 
-func intToID(v int) graphql.ID {
-	return graphql.ID(strconv.Itoa(v))
+func graphQLID(i interface{}) graphql.ID {
+	switch v := i.(type) {
+	case graphql.ID:
+		return v
+	case string:
+		return graphql.ID(v)
+	case uuid.UUID:
+		return graphql.ID(v.String())
+	default:
+		return graphql.ID("")
+	}
 }
 
 type rootResolver struct {

@@ -7,8 +7,8 @@ import (
 
 	"github.com/di0nys1us/httpgo"
 	"github.com/go-chi/chi"
-	"github.com/neelance/graphql-go"
-	"github.com/neelance/graphql-go/relay"
+	"github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go/relay"
 )
 
 func newRouter() http.Handler {

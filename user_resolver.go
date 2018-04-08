@@ -1,7 +1,7 @@
 package main
 
 import (
-	graphql "github.com/neelance/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 )
 
 type userResolver struct {
@@ -10,7 +10,7 @@ type userResolver struct {
 }
 
 func (r *userResolver) ID() graphql.ID {
-	return graphql.ID(r.user.ID.String())
+	return graphQLID(r.user.ID)
 }
 
 func (r *userResolver) Version() int32 {
@@ -42,15 +42,9 @@ func (r *userResolver) Deleted() bool {
 }
 
 func (r *userResolver) Events() ([]*eventResolver, error) {
-	events, err := r.repository.findEventsByUserID(r.user.ID.String())
-
-	if err != nil {
-		return nil, err
-	}
-
 	var resolvers []*eventResolver
 
-	for _, event := range events {
+	for _, event := range r.user.Events {
 		resolvers = append(resolvers, &eventResolver{r.repository, event})
 	}
 

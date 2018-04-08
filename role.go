@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
+	"github.com/satori/go.uuid"
 )
 
 type userRolesFinder interface {
@@ -15,9 +16,9 @@ type roleRepository interface {
 }
 
 type role struct {
-	ID      int    `db:"id" json:"id,omitempty"`
-	Version int    `db:"version" json:"version,omitempty"`
-	Name    string `db:"name" json:"name,omitempty"`
+	ID      uuid.UUID `db:"id" json:"id,omitempty"`
+	Version int       `db:"version" json:"version,omitempty"`
+	Name    string    `db:"name" json:"name,omitempty"`
 }
 
 func (r *role) save(tx *tx) error {

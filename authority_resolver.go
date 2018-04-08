@@ -1,7 +1,7 @@
 package main
 
 import (
-	graphql "github.com/neelance/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 )
 
 type authorityResolver struct {
@@ -10,7 +10,7 @@ type authorityResolver struct {
 }
 
 func (r *authorityResolver) ID() graphql.ID {
-	return graphql.ID(r.authority.ID)
+	return graphQLID(r.authority.ID)
 }
 
 func (r *authorityResolver) Version() int32 {

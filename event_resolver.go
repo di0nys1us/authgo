@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	graphql "github.com/neelance/graphql-go"
 )
 
@@ -14,7 +16,7 @@ func (r *eventResolver) ID() graphql.ID {
 }
 
 func (r *eventResolver) CreatedBy() (*userResolver, error) {
-	user, err := r.repository.findUserByID(r.event.CreatedBy)
+	user, err := r.repository.findUserByID(r.event.CreatedBy.String())
 
 	if err != nil {
 		return nil, err
@@ -24,7 +26,7 @@ func (r *eventResolver) CreatedBy() (*userResolver, error) {
 }
 
 func (r *eventResolver) CreatedAt() string {
-	return r.event.CreatedAt.String()
+	return r.event.CreatedAt.Format(time.RFC3339)
 }
 
 func (r *eventResolver) Type() (string, error) {
