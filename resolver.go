@@ -14,7 +14,7 @@ func graphQLID(i interface{}) graphql.ID {
 	case uuid.UUID:
 		return graphql.ID(v.String())
 	default:
-		return graphql.ID("")
+		return ""
 	}
 }
 

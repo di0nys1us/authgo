@@ -20,8 +20,8 @@ type authorityRepository interface {
 type authority struct {
 	ID      uuid.UUID `db:"id"`
 	Version int       `db:"version"`
-	Events  []*event  `db:"events"`
 	Name    string    `db:"name"`
+	Events  events    `db:"events" json:"events,omitempty"`
 }
 
 func (a *authority) save(tx *tx) error {
@@ -55,7 +55,7 @@ const (
 			"authority"."version",
 			"authority"."name"
 		from "authgo"."authority"
-		inner join "authgo"."role_authority" on "role_authority"."authority_id" = "authority"."id"
+			inner join "authgo"."role_authority" on "role_authority"."authority_id" = "authority"."id"
 		where "role_authority"."role_id" = $1
 		order by "authority"."id";
 	`

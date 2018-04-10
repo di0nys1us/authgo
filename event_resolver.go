@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	graphql "github.com/neelance/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 )
 
 type eventResolver struct {
@@ -12,11 +12,11 @@ type eventResolver struct {
 }
 
 func (r *eventResolver) ID() graphql.ID {
-	return graphql.ID(r.event.ID.String())
+	return graphQLID(r.event.ID)
 }
 
 func (r *eventResolver) CreatedBy() (*userResolver, error) {
-	user, err := r.repository.findUserByID(r.event.CreatedBy.String())
+	user, err := r.repository.findUserByID(r.event.CreatedBy)
 
 	if err != nil {
 		return nil, err
@@ -29,8 +29,8 @@ func (r *eventResolver) CreatedAt() string {
 	return r.event.CreatedAt.Format(time.RFC3339)
 }
 
-func (r *eventResolver) Type() (string, error) {
-	return r.event.Type, nil
+func (r *eventResolver) Type() string {
+	return r.event.Type
 }
 
 func (r *eventResolver) Description() string {

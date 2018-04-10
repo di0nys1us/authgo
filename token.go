@@ -6,12 +6,13 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
+	"github.com/rs/xid"
 	"github.com/satori/go.uuid"
 )
 
 type jwtClaims struct {
 	*jwt.StandardClaims
-	UserID uuid.UUID `json:"uid"`
+	UserID string `json:"uid"`
 }
 
 type tokenHolder struct {
@@ -23,6 +24,7 @@ type tokenHolder struct {
 
 func createToken(user *user) (*tokenHolder, error) {
 	id, err := uuid.NewV4()
+	xid.New()
 
 	if err != nil {
 		return nil, errors.Wrap(err, "authgo: error when creating uuid based id")

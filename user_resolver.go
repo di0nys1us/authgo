@@ -52,7 +52,7 @@ func (r *userResolver) Events() ([]*eventResolver, error) {
 }
 
 func (r *userResolver) Roles() ([]*roleResolver, error) {
-	roles, err := r.repository.findUserRoles(r.user.ID.String())
+	roles, err := r.repository.findUserRoles(r.user.ID)
 
 	if err != nil {
 		return nil, err

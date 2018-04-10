@@ -1,11 +1,11 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
-
-	"github.com/satori/go.uuid"
 
 	"github.com/pkg/errors"
 )
@@ -25,7 +25,7 @@ type userByEmailFinder interface {
 }
 
 type userSaver interface {
-	saveUser(*user) error
+	saveUser(ctx context.Context, user *user) error
 }
 
 type userRepository interface {
@@ -38,15 +38,15 @@ type userRepository interface {
 // STRUCTS
 
 type user struct {
-	ID        uuid.UUID `db:"id" json:"id,omitempty"`
-	Version   int       `db:"version" json:"version,omitempty"`
-	FirstName string    `db:"first_name" json:"firstName,omitempty"`
-	LastName  string    `db:"last_name" json:"lastName,omitempty"`
-	Email     string    `db:"email" json:"email,omitempty"`
-	Password  string    `db:"password" json:"password,omitempty"`
-	Enabled   bool      `db:"enabled" json:"enabled,omitempty"`
-	Deleted   bool      `db:"deleted" json:"deleted,omitempty"`
-	Events    events    `db:"events" json:"events,omitempty"`
+	ID        string `db:"id" json:"id,omitempty"`
+	Version   int    `db:"version" json:"version,omitempty"`
+	FirstName string `db:"first_name" json:"firstName,omitempty"`
+	LastName  string `db:"last_name" json:"lastName,omitempty"`
+	Email     string `db:"email" json:"email,omitempty"`
+	Password  string `db:"password" json:"password,omitempty"`
+	Enabled   bool   `db:"enabled" json:"enabled,omitempty"`
+	Deleted   bool   `db:"deleted" json:"deleted,omitempty"`
+	Events    events `db:"events" json:"events,omitempty"`
 }
 
 func (u *user) save(tx *tx) error {
@@ -143,7 +143,7 @@ func (db *db) findUserByEmail(email string) (*user, error) {
 	return u, nil
 }
 
-func (db *db) saveUser(user *user) error {
+func (db *db) saveUser(ctx context.Context, user *user) error {
 	return db.commit(func(tx *tx) error {
 		eventID, err := db.generateUUID()
 
@@ -151,15 +151,21 @@ func (db *db) saveUser(user *user) error {
 			return errors.WithStack(err)
 		}
 
+		claims, _ := getClaimsFromContext(ctx)
+
+		log.Println(claims.UserID)
+
 		event := &event{
 			ID:          eventID,
-			CreatedBy:   uuid.Nil,
+			CreatedBy:   claims.UserID,
 			CreatedAt:   time.Now(),
 			Type:        eventTypeUserCreated,
 			Description: fmt.Sprintf("User %q created.", user.Email),
 		}
 
 		user.Events = append(user.Events, event)
+
+		log.Println(*user.Events[0])
 
 		err = user.save(tx)
 
@@ -179,14 +185,16 @@ const (
 			"email",
 			"password",
 			"enabled",
-			"deleted"
+			"deleted",
+			"events"
 		) values (
 			:first_name,
 			:last_name,
 			:email,
 			:password,
 			:enabled,
-			:deleted
+			:deleted,
+			:events
 		) returning "user"."id";
 	`
 	sqlUpdateUser = `
@@ -238,6 +246,21 @@ const (
 			"user"."deleted",
 			"user"."events"
 		from "authgo"."user"
+		order by "user"."id";
+	`
+	sqlFindRoleUsers = `
+		select
+			"user"."id",
+			"user"."version",
+			"user"."first_name",
+			"user"."last_name",
+			"user"."email",
+			"user"."enabled",
+			"user"."deleted",
+			"user"."events"
+		from "authgo"."user"
+			inner join "authgo"."user_role" on "user_role"."user_id" = "user"."id"
+		where "user_role"."role_id" = $1
 		order by "user"."id";
 	`
 )

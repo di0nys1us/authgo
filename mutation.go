@@ -1,5 +1,9 @@
 package main
 
+import (
+	"context"
+)
+
 type rootMutation struct {
 	repository repository
 }
@@ -11,7 +15,7 @@ type identity struct {
 
 // CreateUser
 
-func (m *rootMutation) CreateUser(args struct {
+func (m *rootMutation) CreateUser(ctx context.Context, args struct {
 	Input userInput
 }) (*userOutput, error) {
 	user := &user{
@@ -23,7 +27,7 @@ func (m *rootMutation) CreateUser(args struct {
 		Deleted:   args.Input.Deleted,
 	}
 
-	err := m.repository.saveUser(user)
+	err := m.repository.saveUser(ctx, user)
 
 	if err != nil {
 		return nil, err

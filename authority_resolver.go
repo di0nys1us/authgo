@@ -22,7 +22,13 @@ func (r *authorityResolver) Name() string {
 }
 
 func (r *authorityResolver) Events() ([]*eventResolver, error) {
-	return nil, nil
+	var resolvers []*eventResolver
+
+	for _, event := range r.authority.Events {
+		resolvers = append(resolvers, &eventResolver{r.repository, event})
+	}
+
+	return resolvers, nil
 }
 
 func (r *authorityResolver) Roles() ([]*roleResolver, error) {

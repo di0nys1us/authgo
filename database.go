@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"github.com/satori/go.uuid"
 )
 
 const (
@@ -56,13 +55,13 @@ func (db *db) commit(fn func(tx *tx) error) error {
 	return nil
 }
 
-func (db *db) generateUUID() (uuid.UUID, error) {
-	var generated uuid.UUID
+func (db *db) generateUUID() (string, error) {
+	var generated string
 
 	err := db.Get(&generated, sqlGenerateUUID)
 
 	if err != nil {
-		return uuid.Nil, err
+		return "", errors.WithStack(err)
 	}
 
 	return generated, nil
@@ -72,21 +71,21 @@ type tx struct {
 	*sqlx.Tx
 }
 
-func (tx *tx) save(arg interface{}, query string) (uuid.UUID, error) {
+func (tx *tx) save(arg interface{}, query string) (string, error) {
 	stmt, err := tx.PrepareNamed(query)
 
 	if err != nil {
-		return uuid.Nil, errors.WithStack(err)
+		return "", errors.WithStack(err)
 	}
 
 	defer stmt.Close()
 
-	var id uuid.UUID
+	var id string
 
 	err = stmt.Get(&id, arg)
 
 	if err != nil {
-		return uuid.Nil, errors.WithStack(err)
+		return "", errors.WithStack(err)
 	}
 
 	return id, nil

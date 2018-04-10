@@ -16,7 +16,8 @@ const (
 	jwtAudience            = "eies.land"
 	jwtIssuer              = "authgo"
 	jwtCookieName          = "authgo_token"
-	claimsKey              = jwtClaimsKey("jwtClaimsKey")
+	subjectKey             = subjectKeyType("subjectKey")
+	userIDKey              = userIDKeyType("userIDKey")
 	environmentSecurityKey = "AUTHGO_SECURITY_KEY"
 	keyEmail               = "email"
 	keyPassword            = "password"
@@ -28,7 +29,8 @@ var (
 	errMissingSecurityKey   = errors.New("authgo: missing environment variable AUTHGO_SECURITY_KEY")
 )
 
-type jwtClaimsKey string
+type subjectKeyType string
+type userIDKeyType string
 
 type authenticationHolder struct {
 	user        *user

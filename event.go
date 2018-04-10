@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/satori/go.uuid"
-
 	"github.com/pkg/errors"
 )
 
@@ -34,8 +32,8 @@ type eventRepository interface {
 // STRUCTS
 
 type event struct {
-	ID          uuid.UUID `json:"id,omitempty"`
-	CreatedBy   uuid.UUID `json:"createdBy,omitempty"`
+	ID          string    `json:"id,omitempty"`
+	CreatedBy   string    `json:"createdBy,omitempty"`
 	CreatedAt   time.Time `json:"createdAt,omitempty"`
 	Type        string    `json:"type,omitempty"`
 	Description string    `json:"description,omitempty"`
@@ -68,7 +66,13 @@ func (e *events) Value() (driver.Value, error) {
 		return nil, nil
 	}
 
-	return json.Marshal(e)
+	v, err := json.Marshal(e)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return string(v), nil
 }
 
 func (db *db) findAllEvents() ([]*event, error) {

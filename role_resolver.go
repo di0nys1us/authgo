@@ -22,11 +22,17 @@ func (r *roleResolver) Name() string {
 }
 
 func (r *roleResolver) Events() ([]*eventResolver, error) {
-	return nil, nil
+	var resolvers []*eventResolver
+
+	for _, event := range r.role.Events {
+		resolvers = append(resolvers, &eventResolver{r.repository, event})
+	}
+
+	return resolvers, nil
 }
 
 func (r *roleResolver) Authorities() ([]*authorityResolver, error) {
-	authorities, err := r.repository.findRoleAuthorities(r.role.ID.String())
+	authorities, err := r.repository.findRoleAuthorities(r.role.ID)
 
 	if err != nil {
 		return nil, err

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
-	"github.com/satori/go.uuid"
 )
 
 type userRolesFinder interface {
@@ -16,9 +15,10 @@ type roleRepository interface {
 }
 
 type role struct {
-	ID      uuid.UUID `db:"id" json:"id,omitempty"`
-	Version int       `db:"version" json:"version,omitempty"`
-	Name    string    `db:"name" json:"name,omitempty"`
+	ID      string `db:"id" json:"id,omitempty"`
+	Version int    `db:"version" json:"version,omitempty"`
+	Name    string `db:"name" json:"name,omitempty"`
+	Events  events `db:"events" json:"events,omitempty"`
 }
 
 func (r *role) save(tx *tx) error {
@@ -118,10 +118,22 @@ const (
 		select
 			"role"."id",
 			"role"."version",
-			"role"."name"
+			"role"."name",
+			"role"."events"
 		from "authgo"."role"
 			inner join "authgo"."user_role" on "user_role"."role_id" = "role"."id"
 		where "user_role"."user_id" = $1
+		order by "role"."id";
+	`
+	sqlFindAuthorityRoles = `
+		select
+			"role"."id",
+			"role"."version",
+			"role"."name",
+			"role"."events"
+		from "authgo"."role"
+			inner join "authgo"."role_authority" on "role_authority"."role_id" = "role"."id"
+		where "role_authority"."authority_id" = $1
 		order by "role"."id";
 	`
 )
