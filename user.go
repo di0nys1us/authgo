@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/di0nys1us/authgo/security"
 	"github.com/pkg/errors"
 )
 
@@ -151,21 +151,21 @@ func (db *db) saveUser(ctx context.Context, user *user) error {
 			return errors.WithStack(err)
 		}
 
-		claims, _ := getClaimsFromContext(ctx)
+		userID, err := security.UserIDFromContext(ctx)
 
-		log.Println(claims.UserID)
+		if err != nil {
+			return errors.WithStack(err)
+		}
 
 		event := &event{
 			ID:          eventID,
-			CreatedBy:   claims.UserID,
+			CreatedBy:   userID,
 			CreatedAt:   time.Now(),
 			Type:        eventTypeUserCreated,
 			Description: fmt.Sprintf("User %q created.", user.Email),
 		}
 
 		user.Events = append(user.Events, event)
-
-		log.Println(*user.Events[0])
 
 		err = user.save(tx)
 

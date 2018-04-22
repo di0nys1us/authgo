@@ -1,4 +1,4 @@
-package main
+package security
 
 import (
 	"os"
@@ -6,7 +6,6 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
-	"github.com/rs/xid"
 	"github.com/satori/go.uuid"
 )
 
@@ -15,22 +14,20 @@ type jwtClaims struct {
 	UserID string `json:"uid"`
 }
 
-type tokenHolder struct {
-	token       *jwt.Token
+type jwtToken struct {
 	signedToken string
 	claims      *jwtClaims
 	expiresAt   time.Time
 }
 
-func createToken(user *user) (*tokenHolder, error) {
-	id, err := uuid.NewV4()
-	xid.New()
+func createToken(subj Subject) (*jwtToken, error) {
+	id, err := uuid.NewV1()
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when creating uuid based id")
+		return nil, errors.WithStack(err)
 	}
 
-	now := timeFunc()
+	now := TimeFunc()
 	expiresAt := now.AddDate(0, 0, 1)
 	claims := &jwtClaims{
 		&jwt.StandardClaims{
@@ -40,25 +37,25 @@ func createToken(user *user) (*tokenHolder, error) {
 			IssuedAt:  now.Unix(),
 			Issuer:    jwtIssuer,
 			NotBefore: now.Unix(),
-			Subject:   user.Email,
+			Subject:   subj.UserEmail(),
 		},
-		user.ID,
+		subj.UserID(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	securityKey, err := resolveSecurityKey(token)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when resolving security key")
+		return nil, errors.WithStack(err)
 	}
 
 	signedToken, err := token.SignedString(securityKey)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "authgo: error when signing the token")
+		return nil, errors.WithStack(err)
 	}
 
-	return &tokenHolder{token, signedToken, claims, expiresAt}, nil
+	return &jwtToken{signedToken, claims, expiresAt}, nil
 }
 
 func resolveSecurityKey(t *jwt.Token) (interface{}, error) {

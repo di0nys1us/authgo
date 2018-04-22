@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/di0nys1us/authgo/security"
 	"github.com/di0nys1us/httpgo"
 	"github.com/go-chi/chi"
 	"github.com/graph-gophers/graphql-go"
@@ -18,7 +19,7 @@ func newRouter() http.Handler {
 		log.Fatal(err)
 	}
 
-	security := newSecurity(db)
+	s := security.New(nil)
 	router := chi.NewRouter()
 
 	schema, err := graphql.ParseSchema(readSchema(), &rootResolver{
@@ -32,7 +33,7 @@ func newRouter() http.Handler {
 
 	// Protected routes
 	router.Group(func(g chi.Router) {
-		g.Use(authorize)
+		g.Use(security.Authorize)
 
 		g.Handle("/graphql", &relay.Handler{Schema: schema})
 		g.Method(http.MethodGet, "/", httpgo.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
@@ -48,10 +49,10 @@ func newRouter() http.Handler {
 
 	// Public routes
 	router.Group(func(g chi.Router) {
-		g.Method(http.MethodGet, "/login", httpgo.ErrorHandlerFunc(security.getLogin))
-		g.Method(http.MethodPost, "/login", httpgo.ErrorHandlerFunc(security.postLogin))
-		g.Method(http.MethodPost, "/authenticate", httpgo.ErrorHandlerFunc(security.authenticate))
-		g.Method(http.MethodGet, "/invalidate", httpgo.ErrorHandlerFunc(invalidate))
+		g.Method(http.MethodGet, "/login", httpgo.ErrorHandlerFunc(security.GetLogin))
+		g.Method(http.MethodPost, "/login", httpgo.ErrorHandlerFunc(s.PostLogin))
+		g.Method(http.MethodPost, "/authenticate", httpgo.ErrorHandlerFunc(s.Authenticate))
+		g.Method(http.MethodGet, "/logout", httpgo.ErrorHandlerFunc(security.Logout))
 	})
 
 	return router
