@@ -1,7 +1,7 @@
 package main
 
 import (
-	graphql "github.com/neelance/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 )
 
 type rootQuery struct {
