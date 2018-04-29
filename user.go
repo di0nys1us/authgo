@@ -99,6 +99,22 @@ func (u *user) delete(tx *tx) error {
 	return nil
 }
 
+func (u *user) UserID() string {
+	return u.ID
+}
+
+func (u *user) UserEmail() string {
+	return u.Email
+}
+
+func (u *user) UserPassword() string {
+	return u.Password
+}
+
+func (u *user) UserActive() bool {
+	return u.Enabled && !u.Deleted
+}
+
 func (db *db) findAllUsers() ([]*user, error) {
 	users := []*user{}
 
@@ -143,9 +159,19 @@ func (db *db) findUserByEmail(email string) (*user, error) {
 	return u, nil
 }
 
+func (db *db) FindSubjectByEmail(email string) (security.Subject, error) {
+	return db.findUserByEmail(email)
+}
+
 func (db *db) saveUser(ctx context.Context, user *user) error {
 	return db.commit(func(tx *tx) error {
 		eventID, err := db.generateUUID()
+
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		user.Password, err = security.GenerateHashedPassword(user.Password)
 
 		if err != nil {
 			return errors.WithStack(err)

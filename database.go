@@ -10,7 +10,7 @@ const (
 )
 
 func newDB() (*db, error) {
-	wrapped, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=postgres sslmode=disable")
+	wrapped, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=postgres host=artemis sslmode=disable")
 
 	if err != nil {
 		return nil, errors.WithStack(err)

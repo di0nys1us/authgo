@@ -19,7 +19,7 @@ func newRouter() http.Handler {
 		log.Fatal(err)
 	}
 
-	s := security.New(nil)
+	s := security.New(db)
 	router := chi.NewRouter()
 
 	schema, err := graphql.ParseSchema(readSchema(), &rootResolver{

@@ -2,5 +2,5 @@
 
 migrate \
     -path ./migrations \
-    -database "postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable" \
+    -database "postgres://postgres:postgres@artemis:5432/postgres?sslmode=disable" \
     "$@"

@@ -61,7 +61,7 @@ func (e *events) Scan(src interface{}) error {
 	return json.Unmarshal(src.([]byte), e)
 }
 
-func (e *events) Value() (driver.Value, error) {
+func (e events) Value() (driver.Value, error) {
 	if e == nil {
 		return nil, nil
 	}
