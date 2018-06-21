@@ -244,7 +244,8 @@ const (
 			"user"."last_name",
 			"user"."email",
 			"user"."enabled",
-			"user"."deleted"
+			"user"."deleted",
+			"user"."events"
 		from "authgo"."user"
 		where "user"."id" = $1;
 	`

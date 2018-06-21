@@ -18,6 +18,8 @@ const (
 	ctxKeyUserEmail        = contextKeyUserEmail("ctxKeyUserEmail")
 	formKeyEmail           = "email"
 	formKeyPassword        = "password"
+	UnknownUserID          = "UnknownUserID"
+	UnknownUserEmail       = "UnknownUserEmail"
 )
 
 var (
@@ -65,20 +67,20 @@ func New(subjectFinder subjectByEmailFinder) *security {
 	return &security{subjectFinder}
 }
 
-func UserIDFromContext(ctx context.Context) (string, error) {
+func UserIDFromContext(ctx context.Context) string {
 	if userID, ok := ctx.Value(ctxKeyUserID).(string); ok && userID != "" {
-		return userID, nil
+		return userID
 	}
 
-	return "", errors.New("authgo: user id is missing")
+	return UnknownUserID
 }
 
-func UserEmailFromContext(ctx context.Context) (string, error) {
+func UserEmailFromContext(ctx context.Context) string {
 	if userEmail, ok := ctx.Value(ctxKeyUserEmail).(string); ok && userEmail != "" {
-		return userEmail, nil
+		return userEmail
 	}
 
-	return "", errors.New("authgo: user email is missing")
+	return UnknownUserEmail
 }
 
 func (s *security) authenticateRequest(r *http.Request) (*authentication, error) {

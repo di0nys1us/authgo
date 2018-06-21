@@ -1,15 +1,22 @@
 package main
 
 import (
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+
+	"github.com/di0nys1us/authgo/sqlgo"
 
 	"github.com/di0nys1us/authgo/security"
 	"github.com/di0nys1us/httpgo"
 	"github.com/go-chi/chi"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
+)
+
+const (
+	regexpUUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 )
 
 func newRouter() http.Handler {
@@ -21,6 +28,14 @@ func newRouter() http.Handler {
 
 	s := security.New(db)
 	router := chi.NewRouter()
+
+	db2, err := sqlgo.NewDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	uh := &userHandler{db2}
 
 	schema, err := graphql.ParseSchema(readSchema(), &rootResolver{
 		&rootQuery{db},
@@ -45,6 +60,9 @@ func newRouter() http.Handler {
 
 			return tmpl.Execute(w, nil)
 		}))
+
+		g.Method(http.MethodGet, "/users", httpgo.ErrorHandlerFunc(uh.getUsers))
+		g.Method(http.MethodGet, fmt.Sprintf("/users/{userID:%s}", regexpUUID), httpgo.ErrorHandlerFunc(uh.getUser))
 	})
 
 	// Public routes
